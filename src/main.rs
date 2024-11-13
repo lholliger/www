@@ -17,6 +17,7 @@ async fn main() {
         .route("/posts/:slug", get(serve_post_page))
         .route("/posts/:slug/", get(serve_post_page))
         .nest_service("/assets", tower_http::services::ServeDir::new("assets"))
+        .nest_service("/artifacts", tower_http::services::ServeDir::new("artifacts"))
         .fallback(error_page(StatusCode::NOT_FOUND, ""));
 
     

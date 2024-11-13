@@ -1,6 +1,7 @@
 /target
 .DS_Store
 old
+/artifacts
 
 # Added by cargo
 #
