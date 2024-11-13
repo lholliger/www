@@ -1,0 +1,153 @@
+body {
+    margin: 0;
+    padding: 0;
+    background-color: #d9d9d9;
+    font-family: sans-serif;
+}
+
+main {
+    width: 600px;
+    margin: 2em auto;
+    padding: 2em;
+    background-color: #fdfdff;
+    border-radius: 0.5em;
+    box-shadow: 5px;
+}
+
+main img {
+    max-width: 100%;
+}
+
+/* header stuffs */
+
+header {
+    width: 600px;
+    margin: 2em auto;
+    padding: 0 2em;
+    background-color: #fdfdff;
+    border-radius: 0.5em;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);  /* Fix box-shadow */
+}
+
+.header-top {
+    padding: 0.5em 1em;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1em;
+}
+
+.profile-image {
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 5px solid #fdfdff;
+}
+
+header h1 {
+    margin: 0;
+    padding: 0;
+}
+
+a h1 {
+    color: black;
+}
+
+/* Navigation styles */
+header ul {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    gap: 1em;
+}
+
+li {
+    margin: 0;
+}
+
+header li a {
+    display: block;
+    padding: 0.5em 1em;
+    text-align: center;
+    text-decoration: none;
+}
+
+
+
+a:link, a:visited {
+    color: #38488f;
+}
+
+footer {
+    font-size: smaller;
+    text-align: center;
+    color: gray;
+}
+
+.header-content {
+    flex-grow: 1;
+}
+
+@media (max-width: 700px) {
+    header, main {
+        width: auto;
+        margin: 1em;
+    }
+
+    .header-top {
+        flex-direction: column;
+        text-align: center;
+    }
+
+    .profile-image {
+        margin-bottom: 1em;
+    }
+
+    header ul {
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+}
+
+
+.eightyeightthirtyone {
+    width: 88px;
+    height: 31px;
+    padding: 1px;
+    image-rendering: pixelated;
+}
+
+.badges {
+    text-align: center;
+}
+
+/* Post list styling */
+.posts ul {
+    list-style: none;
+    padding: 0;
+}
+
+.posts li {
+    font-size: 1.1rem;
+}
+
+a {
+    color: #2563eb;
+    text-decoration: none;
+}
+
+/* Post date styling */
+.posts li a li time {
+    color: #6b7280;
+    font-size: 0.9rem;
+}
+
+.description {
+    margin-top: 0;
+    color: gray;
+    font-style: italic;
+    font-size: smaller;
+    margin-bottom: 1rem;
+}

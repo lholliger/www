@@ -1,0 +1,17 @@
+[package]
+name = "holligerme"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.93"
+axum = { version = "0.7.7", features = ["tracing"] }
+chrono = "0.4.38"
+gray_matter = "0.2.8"
+lazy_static = "1.5.0"
+markdown = "1.0.0-alpha.21"
+maud = { version = "0.26.0", features = ["axum"] }
+serde = { version = "1.0.214", features = ["derive"] }
+tokio = { version = "1.41.1", features = ["full"] }
+tower-http = { version = "0.6.1", features = ["fs"] }
+tracing-subscriber = "0.3.18"
