@@ -63,10 +63,17 @@ lazy_static! {
                 path_to_compress = format!("{}.png", path_to_compress);
                 let cmpr = run_command_nicely(Command::new("convert").arg(&op).arg(&path_to_compress));
                 if cmpr.0 != 0 {
-                    eprintln!("Could not convert webp image... serving as-is");
+                    eprintln!("Could not convert webp image... serving as-is for {}", badge.0);
                     converted_badges.push((badge.0, badge.1, op));
                     continue;
                 }
+            }
+
+            // if gif, just serve the gif
+            if path_to_compress.ends_with("gif") {
+                println!("Serving GIF image for {}", badge.0);
+                converted_badges.push((badge.0, badge.1, path_to_compress));
+                continue;
             }
 
             // now we can try to compress it
