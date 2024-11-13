@@ -18,8 +18,10 @@ pub fn merge_page(body: Markup, is_main_page: bool) -> Markup {
                         a href="/" { h1 { "Lukas Holliger" } }
                         img src="/assets/images/me.jpeg" alt="profile picture" class="profile-image";
                     }
-                    @if !is_main_page {
-                        // something should go here
+                    @if is_main_page {
+                        ul {
+                            li { a href="/about" {"About"} };
+                        }
                     }
                 }
                 main {

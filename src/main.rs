@@ -4,7 +4,7 @@ use axum::{
     Router,
 };
 use maud::Markup;
-use paths::{posts::serve_post_page, root::error_page};
+use paths::{about::index, posts::serve_post_page, root::error_page};
 mod paths;
 
 #[tokio::main]
@@ -14,6 +14,7 @@ async fn main() {
     
     let app = Router::new()
         .route("/", get(root))
+        .route("/about", get(index))
         .route("/posts/:slug", get(serve_post_page))
         .route("/posts/:slug/", get(serve_post_page))
         .nest_service("/assets", tower_http::services::ServeDir::new("assets"))

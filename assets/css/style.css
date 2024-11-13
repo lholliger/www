@@ -61,6 +61,7 @@ header ul {
     padding: 0;
     display: flex;
     gap: 1em;
+    padding-bottom: 2em;
 }
 
 li {
