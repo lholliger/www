@@ -11,7 +11,7 @@ pub fn merge_page(body: Markup, is_main_page: bool) -> Markup {
                 meta charset="utf-8";
                 meta name="viewport" content="width=device-width, initial-scale=1.0";
                 title { "Lukas Holliger" }
-                link rel="stylesheet" href="/assets/css/style.css";
+                link rel="stylesheet" href=(format!("/assets/css/style.css?revision={}", env!("GIT_HASH")));
             }
             body {
                 header {
