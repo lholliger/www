@@ -155,9 +155,6 @@ fn main() {
 
     let mut badge_contents = Vec::new();
     for (_, _, image) in &converted_badges {
-        if !image.starts_with('/') {
-            continue;
-        }
         match fs::read(image) {
             Ok(contents) => {
                 badge_contents.push(format!("&{:?}", contents));
