@@ -1,4 +1,5 @@
 use axum::http::StatusCode;
+use chrono::{NaiveDateTime, Utc};
 use maud::{html, Markup};
 
 use crate::paths::{eighteightthirtyone::badges, posts::get_posts_html};
@@ -32,7 +33,11 @@ pub fn merge_page(body: Markup, is_main_page: bool) -> Markup {
                         (badges())
                     } @else {
                         a href="/" { "Return home"}
+                        br;
+                        br;
                     }
+                    p { "Source code " a href="https://github.com/lholliger/www" { "available here" } " released under the " a href="https://github.com/lholliger/www/blob/main/COPYING" {"GNU AGPLv3 license"} }
+                    p { "Updated " (NaiveDateTime::parse_from_str(env!("GIT_TIME"), "%s").unwrap().and_local_timezone(Utc).unwrap().to_rfc2822()) " (" (env!("GIT_MESSAGE")) ") [" (env!("GIT_HASH")) "]"}
                     p { "All opinions here are my own and do not reflect the views of my employers or university: future, past, and present." }
                 }
             }
