@@ -15,12 +15,9 @@ lazy_static! {
         // now we can generate the HTML
         html! {
             div."badges" {
-                @for (index, badge) in BUILD_BADGES.iter().enumerate() {
+                @for (_, badge) in BUILD_BADGES.iter().enumerate() {
                     a href=(badge.1) target="_blank" {
                         img alt=(badge.0) src=(format!("/88x31/{}", badge.2)) class="eightyeightthirtyone";
-                    }
-                    @if (index + 1) % 5 == 0 {
-                        br;
                     }
                 }
             }

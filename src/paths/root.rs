@@ -1,44 +1,82 @@
 use axum::http::StatusCode;
 use chrono::{NaiveDateTime, Utc};
-use maud::{html, Markup};
+use maud::{html, Markup, PreEscaped};
 
 use crate::paths::{eighteightthirtyone::badges, posts::get_posts_html};
+pub struct MergedPage {
+    title: Option<String>,
+    meta_description: Option<String>,
+    meta_image: Option<String>,
+    body: PreEscaped<String>,
+    main_page: bool
+}
 
-pub fn merge_page(body: Markup, is_main_page: bool) -> Markup {
-    html! {
-        html {
-            head {
-                meta charset="utf-8";
-                meta name="viewport" content="width=device-width, initial-scale=1.0";
-                title { "Lukas Holliger" }
-                link rel="stylesheet" href=(format!("/assets/css/style.css?revision={}", env!("GIT_HASH")));
-            }
-            body {
-                header {
-                    div."header-top" {
-                        a href="/" { h1 { "Lukas Holliger" } }
-                        img src="/assets/images/me.jpeg" alt="profile picture" class="profile-image";
+impl MergedPage {
+    // may want to generate a description based off of the content
+    pub fn new(title: Option<String>, description: Option<String>, image: Option<String>, body: PreEscaped<String>, main_page: bool) -> MergedPage {
+        MergedPage { title, meta_description: description, meta_image: image, body, main_page }
+    }
+
+    pub fn new_content_and_meta(title: String, description: String, body: PreEscaped<String>) -> MergedPage {
+        MergedPage::new(Some(title), Some(description), None, body, false)
+    }
+
+    pub fn new_content_and_meta_main(title: String, description: String, body: PreEscaped<String>) -> MergedPage {
+        MergedPage::new(Some(title), Some(description), None, body, true)
+    }
+
+    pub fn render(&self) -> Markup {
+        html! {
+            html {
+                head {
+                    meta charset="utf-8";
+                    meta name="viewport" content="width=device-width, initial-scale=1.0";
+                    meta name="author" content="Lukas Holliger";
+                    @if self.title.is_none() {
+                        title { "Lukas Holliger" }
+                        meta property="og:title" content="Lukas Holliger";
+                    } @else {
+                        title { "Lukas Holliger | " (self.title.as_ref().unwrap()) }
+                        meta property="og:title" content {"Lukas Holliger | " (self.title.as_ref().unwrap())}
                     }
-                    @if is_main_page {
-                        ul {
-                            li { a href="/about" {"About"} };
+                    @if !self.meta_description.is_none() {
+                        meta property="og:description" content=(self.meta_description.as_ref().unwrap());
+                        meta name="description" content=(self.meta_description.as_ref().unwrap());
+                    }
+
+                    @if !self.meta_image.is_none() {
+                        meta property="og:image" content=(self.meta_image.as_ref().unwrap());
+                    }
+
+                    link rel="stylesheet" href=(format!("/assets/css/style.css?revision={}", env!("GIT_HASH")));
+                }
+                body {
+                    header {
+                        div."header-top" {
+                            a href="/" { h1 { "Lukas Holliger" } }
+                            img src="/assets/images/me.jpeg" alt="profile picture" class="profile-image";
+                        }
+                        @if self.main_page {
+                            ul {
+                                li { a href="/about" {"About"} };
+                            }
                         }
                     }
-                }
-                main {
-                    (body)
-                }
-                footer {
-                    @if is_main_page {
-                        (badges())
-                    } @else {
-                        a href="/" { "Return home"}
-                        br;
-                        br;
+                    main {
+                        (self.body)
                     }
-                    p { "Source code " a href="https://github.com/lholliger/www" { "available here" } " released under the " a href="https://github.com/lholliger/www/blob/main/COPYING" {"GNU AGPLv3 license"} }
-                    p { "Updated " (NaiveDateTime::parse_from_str(env!("GIT_TIME"), "%s").unwrap().and_local_timezone(Utc).unwrap().to_rfc2822()) " (" (env!("GIT_MESSAGE")) ") [" (env!("GIT_HASH")) "]"}
-                    p { "All opinions here are my own and do not reflect the views of my employers or university: future, past, and present." }
+                    footer {
+                        @if self.main_page {
+                            (badges())
+                        } @else {
+                            a href="/" { "Return home"}
+                            br;
+                            br;
+                        }
+                        p { "Source code " a href="https://github.com/lholliger/www" { "available here" } " released under the " a href="https://github.com/lholliger/www/blob/main/COPYING" {"GNU AGPLv3 license"} }
+                        p { "Updated " (NaiveDateTime::parse_from_str(env!("GIT_TIME"), "%s").unwrap().and_local_timezone(Utc).unwrap().to_rfc2822()) " (" (env!("GIT_MESSAGE")) ") [" (env!("GIT_HASH")) "]"}
+                        p { "All opinions here are my own and do not reflect the views of my employers or university: future, past, and present." }
+                    }
                 }
             }
         }
@@ -46,7 +84,7 @@ pub fn merge_page(body: Markup, is_main_page: bool) -> Markup {
 }
 
 pub fn index() -> Markup {
-    merge_page(html! {
+    MergedPage::new(None, Some("Hello 👋 I'm Lukas".to_string()), Some("/assets/images/me.jpeg".to_string()), html! {
                     section class="hero" {
                         h2 { "Hello 👋 I'm Lukas" }
                         p { "I'm a software engineer in Atlanta, Georgia currently studying Computer Engineering at Georgia Tech. I was previously (and will be in 2025) an intern at Apple, working in Services Engineering where I have worked on various HLS and metadata technologies." }
@@ -59,11 +97,11 @@ pub fn index() -> Markup {
                         h3 { "Posts" }
                         (get_posts_html(5))
                     }
-    }, true)
+    }, true).render()
 }
 
 pub fn error_page(code: StatusCode, message: &str) -> (StatusCode, Markup) {
-    (code, merge_page(html! {
+    (code, MergedPage::new_content_and_meta("404".to_string(),"Page not found :(".to_string(), html! {
         div {
             h1 { "Error " (code.as_u16()) }
             @if message.len() > 0 {
@@ -73,7 +111,7 @@ pub fn error_page(code: StatusCode, message: &str) -> (StatusCode, Markup) {
                 a href="/" {"Return home"}
             }
         }
-    }, true))
+    }).render())
 }
 
 

@@ -7,7 +7,7 @@ use lazy_static::lazy_static;
 use maud::{html, Markup};
 use markdown::{to_html_with_options, CompileOptions, Options};
 
-use super::root::{error_page, merge_page};
+use super::root::{error_page, MergedPage};
 
 #[derive(Debug, Clone)]
 pub struct Post {
@@ -124,12 +124,12 @@ pub async fn serve_post_page(Path(slug): Path<String>) -> Result<Markup, (Status
     }
 
     let post = POSTS.get(&post_num).unwrap();
-    Ok(merge_page(html! {
+    Ok(MergedPage::new_content_and_meta(post.title.clone(), post.description.clone(), html! {
         h1 { (post.title) }
         p."post-date" { (post.date.format("%Y-%m-%d")) }
         p."description" { (post.description) }
         div."post-content" {
             (maud::PreEscaped(&post.text))
         }
-    }, false))
+    }).render())
 }

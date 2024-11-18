@@ -1,11 +1,11 @@
 use maud::{html, Markup};
 
-use super::root::merge_page;
+use super::root::MergedPage;
 
 
 
 pub async fn index() -> Markup {
-    merge_page(html! {
+    MergedPage::new_content_and_meta_main("About".to_string(), "A little information about myself".to_string(), html! {
         h1 { "Well hello 👋 guess you wanted to know more about me" }
         p { "I'm currently a third year at the Georgia Institute of Technology
         (I’m just going to call it Georgia Tech, but I guess that’s the official title it’s supposed to be called by)
@@ -29,5 +29,5 @@ pub async fn index() -> Markup {
         br;
         br;
         a href="/" { "Return home"}
-    }, false)
+    }).render()
 }

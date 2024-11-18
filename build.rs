@@ -1,4 +1,3 @@
-use core::num;
 use std::{env, fs, process::Command};
 
 fn run_command_nicely(command: &mut Command) -> (i32, String) {
