@@ -22,10 +22,10 @@ pub async fn index() -> Markup {
         When I am on vacation, I tend to scuba dive wrecks in the area, or coral reefs (posts soon, allegedly)." }
         img src="/assets/images/about/diving.jpg";
         p { "On campus, I am an active member of WREK Atlanta, the school’s public radio station (available at 91.1 FM in Georgia or at " a href="https://wrek.org" {"wrek.org"} "anywhere with internet),
-        where I operate the station every Friday at 11am to 12pm. I am also on the engineering team as Assistant Chief Engineer where we are currently working on modernizing some of our older systems." }
-        p { "If you're looking for my resume (since perhaps you're a part of my ECE1100 class, you can find it " a href="/assets/Holliger_Resume_1100_Privacy.pdf" { "here" }
-        ". Do note, this resume is not entirely accurate and my personal resume can be obtained upon email request."}
-        i { "This page was last updated November 12, 2024. It is likely not complete or entirely up to date."}
+        where I operate the station every Friday at 11am to 12pm. I am also on the engineering team as Assistant Chief Engineer where we are currently working on modernizing some of our older systems.
+        I am also on the exec board of the Amateur Radio Club (W4AQL). I'm not too active over the airwaves, but I can be found as KQ4QME!"}
+        p{ "If you would like my personal resume, can be obtained upon email request. My LinkedIn should be mostly up to date however."}
+        i { "This page was last updated November 19, 2024. It is likely not complete or entirely up to date."}
         br;
         br;
         a href="/" { "Return home"}

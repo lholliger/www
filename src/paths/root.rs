@@ -37,7 +37,7 @@ impl MergedPage {
                         meta property="og:title" content="Lukas Holliger";
                     } @else {
                         title { "Lukas Holliger | " (self.title.as_ref().unwrap()) }
-                        meta property="og:title" content {"Lukas Holliger | " (self.title.as_ref().unwrap())}
+                        meta property="og:title" content=(format!("Lukas Holliger | {}", self.title.as_ref().unwrap()));
                     }
                     @if !self.meta_description.is_none() {
                         meta property="og:description" content=(self.meta_description.as_ref().unwrap());

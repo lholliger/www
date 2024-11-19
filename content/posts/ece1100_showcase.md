@@ -1,11 +1,13 @@
 ---
-title: ECE1100 Making door opening easier
+title: "ECE1100: Making door opening easier"
 description: Using some cheap HID scanners to not use a key
 date: 2024-11-12
 tags:
     - 3d-printing
     - ece1100
 ---
+
+*This post exists for a class at Georgia Tech, some interesting information may be here but it isn't something I'd normally write at the moment*
 
 # Project Overview
 For my building, I've been dealing with the inconvenience of juggling three nearly identical keys - one for the front door, one for various closets, and one for my actual room door. Despite their similar appearances, these keys are completely distinct with no overlap in functionality. After some research, I decided to explore creating a DIY card access system using relatively inexpensive components, some of which I had on hand:
