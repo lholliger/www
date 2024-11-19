@@ -17,7 +17,16 @@ lazy_static! {
             div."badges" {
                 @for (_, badge) in BUILD_BADGES.iter().enumerate() {
                     a href=(badge.1) target="_blank" {
-                        img alt=(badge.0) src=(format!("/88x31/{}", badge.2)) class="eightyeightthirtyone";
+                        picture class="eightyeightthirtyone" {
+                            @let urls: Vec<&str> = badge.2.split(", ").collect();
+                            @for (i, url) in urls.iter().enumerate() {
+                                @if i < urls.len() - 1 {
+                                    source alt=(badge.0) srcset=(format!("/88x31/{}", url)) type=(format!("image/{}", url.split_once(".").unwrap().1));
+                                } @else {
+                                    img alt=(badge.0) src=(format!("/88x31/{}", url));
+                                }
+                            }
+                        }
                     }
                 }
             }

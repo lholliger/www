@@ -77,52 +77,102 @@ fn main() {
                 let curl = run_command_nicely(Command::new("curl").arg(&path_to_compress).arg("-o").arg(&cached_path));
                 if curl.0 != 0 { // the command failed
                     eprintln!("Failed to download the badge! Will ned to serve as-is for now! (Error: {:?}", curl.1);
-                    converted_badges.push((badge.0, badge.1, path_to_compress));
+                    converted_badges.push((badge.0, badge.1, vec![path_to_compress]));
                     continue;
                 }
             }
             path_to_compress = cached_path;
         }
 
-        // webp does badly for some reason
-        if path_to_compress.ends_with("webp") {
+        // need to allow cross-conversion, webp doesnt like jxl and jxl doesnt like webp
+        // TODO: support animated webp during this part of the build phase, currently webp must become gif
+        if path_to_compress.ends_with("webp") || path_to_compress.ends_with("jxl") {
             let op = path_to_compress.clone();
             path_to_compress = format!("{}.png", path_to_compress);
             if file_violates_cache_rules(&path_to_compress) || cache_violated { // check cache_violated as the png would exist but be expired
                 cache_violated = true;
-                println!("{} is not webp-converted! Converting...", badge.0);
+                println!("{} is in a format that cannot be compressed easily! Converting to PNG to re-compress...", badge.0);
                 let cmpr = run_command_nicely(Command::new("convert").arg(&op).arg(&path_to_compress));
                 if cmpr.0 != 0 {
                     eprintln!("Could not convert webp image... serving as-is for {}", badge.0);
-                    converted_badges.push((badge.0, badge.1, op));
+                    converted_badges.push((badge.0, badge.1, vec![op]));
                     continue;
                 }
             }
         }
+        let mut valid_save_paths: Vec<String> = Vec::new();
+
 
         // if gif, just serve the gif
         if path_to_compress.ends_with("gif") {
             println!("Serving GIF image for {}", badge.0);
-            converted_badges.push((badge.0, badge.1, path_to_compress));
+            // attempt to compress
+
+            let save_path = format!("{out_dir}/artifacts/88x31/published/{}.webp", badge.0);
+            if file_violates_cache_rules(&save_path) || cache_violated {
+                // https://github.com/gianni-rosato/minify/blob/129027ccc0ac134d05ad748b7938d255158750ac/minify.sh#L62
+                let cjxl = run_command_nicely(Command::new("gif2webp").arg("-q").arg("100").arg("-m").arg("6").arg("-metadata").arg("icc").arg(&path_to_compress).arg("-o").arg(&save_path));
+                if cjxl.0 == 0 {
+                    println!("Cached and optimized {} for Animated WEBP", badge.0);
+                    valid_save_paths.push(save_path);
+                } else {
+                    eprintln!("Animated WEBP compression failed for {}", cjxl.1);
+                }
+            } else {
+                // already compressed!
+                println!("Serving cached and optimized file for {}", badge.0);
+                valid_save_paths.push(save_path);
+            }
+
+            valid_save_paths.push(path_to_compress);
+
+            converted_badges.push((badge.0, badge.1, valid_save_paths));
             continue;
         }
 
+
         // now we can try to compress it
-        let save_path = format!("{out_dir}/artifacts/88x31/published/{}.jxl", badge.0);
-        // compress!
+        let save_path: String = format!("{out_dir}/artifacts/88x31/published/{}.jxl", badge.0);
         if file_violates_cache_rules(&save_path) || cache_violated {
             let cjxl = run_command_nicely(Command::new("cjxl").arg("-d").arg("0").arg("-e").arg("10").arg(&path_to_compress).arg(&save_path));
             if cjxl.0 == 0 {
-                println!("Cached and optimized {}", badge.0);
-                converted_badges.push((badge.0, badge.1, save_path));
-                continue;
+                println!("Cached and optimized {} for JXL", badge.0);
+                valid_save_paths.push(save_path);
+            } else {
+                eprintln!("JXL compression failed for {}", cjxl.1);
             }
-            eprintln!("JXL compression failed. Serving the uncompressed version: {}", cjxl.1);
-            converted_badges.push((badge.0, badge.1, path_to_compress));
         } else {
             // already compressed!
             println!("Serving cached and optimized file for {}", badge.0);
-            converted_badges.push((badge.0, badge.1, save_path));
+            valid_save_paths.push(save_path);
+        }
+
+
+        // fallback webp
+        let save_path = format!("{out_dir}/artifacts/88x31/published/{}.webp", badge.0);
+        if file_violates_cache_rules(&save_path) || cache_violated {
+            // https://github.com/gianni-rosato/minify/blob/129027ccc0ac134d05ad748b7938d255158750ac/minify.sh#L62
+            let cjxl = run_command_nicely(Command::new("cwebp").arg("-mt").arg("-lossless").arg("-z").arg("9").arg("-alpha_filter").arg("best").arg("-metadata").arg("icc").arg(&path_to_compress).arg("-o").arg(&save_path));
+            if cjxl.0 == 0 {
+                println!("Cached and optimized {} for JXL", badge.0);
+                valid_save_paths.push(save_path);
+                //converted_badges.push((badge.0, badge.1, save_path));
+            } else {
+                eprintln!("JXL compression failed for {}", cjxl.1);
+            }
+            //converted_badges.push((badge.0, badge.1, path_to_compress));
+        } else {
+            // already compressed!
+            println!("Serving cached and optimized file for {}", badge.0);
+            //converted_badges.push((badge.0, badge.1, save_path));
+            valid_save_paths.push(save_path);
+        }
+
+        // done, now we can see if anything was compressed
+        if valid_save_paths.len() == 0 {
+            converted_badges.push((badge.0, badge.1, vec![path_to_compress]));
+        } else {
+            converted_badges.push((badge.0, badge.1, valid_save_paths));
         }
     }
 
@@ -131,15 +181,29 @@ fn main() {
     // now we need to figure out how to cache this
     let mut badge_strings = Vec::new();
     let mut number_mappings = Vec::new();
+    let mut badge_contents = Vec::new();
     let mut count = 0;
-    for (name, url, image) in &converted_badges {
-        let ext = image.split("/").last().unwrap().split(".").last().unwrap();
-        let im_path = format!("{name}.{ext}");
-        badge_strings.push(format!("(\"{}\", \"{}\", \"{}\")", name, url, im_path));
-        number_mappings.push((im_path, count));
-        count += 1;
+    for (name, url, images) in &converted_badges {
+        let mut image_paths = Vec::new();
+        for image in images {
+            match fs::read(image) {
+                Ok(contents) => {
+                    let ext = image.split("/").last().unwrap().split(".").last().unwrap();
+                    let im_path = format!("{name}.{ext}");
+                    image_paths.push(im_path.clone());
+                    number_mappings.push((im_path, count));
+                    count += 1;
+                    badge_contents.push(format!("&{:?}", contents));
+                },
+                Err(e) => {
+                    panic!("Failed to read badge file {}: {}", image, e);
+                }
+            }
+        }
+        badge_strings.push(format!("(\"{}\", \"{}\", \"{}\")", name, url, image_paths.join(", ")));
     }
     // BADGE_MAPPING exists for the lazy_static HashMap to be made... there should be be a better solution than this
+    // we shouldnt want to split in the generation phase...
     let output = format!("const BUILD_BADGES: [(&str, &str, &str); {}] = [{}];\nconst BADGE_MAPPING: [(&str, i32); {}] = [{}];", 
         badge_strings.len(),
         badge_strings.join(", "),
@@ -150,20 +214,7 @@ fn main() {
             .join(", ")
     );
 
-    fs::write(format!("{out_dir}/badges.rs"), output).unwrap();
-
-    let mut badge_contents = Vec::new();
-    for (_, _, image) in &converted_badges {
-        match fs::read(image) {
-            Ok(contents) => {
-                badge_contents.push(format!("&{:?}", contents));
-            },
-            Err(e) => {
-                panic!("Failed to read badge file {}: {}", image, e);
-            }
-        }
-    }
-    
+    fs::write(format!("{out_dir}/badges.rs"), output).unwrap();    
     // Create the array declaration with the contents
     let output = format!("const BADGE_CONTENTS: &[&[u8]; {}] = &[{}];",
         badge_contents.len(),
