@@ -6,6 +6,7 @@ use gray_matter::{engine::YAML, Matter};
 use lazy_static::lazy_static;
 use maud::{html, Markup};
 use markdown::{to_html_with_options, CompileOptions, Options};
+use tracing::{error, info};
 
 use super::root::{error_page, MergedPage};
 
@@ -34,7 +35,7 @@ pub fn md_to_html(md: String) -> String {
 // TODO: dont unwrap so much!
 lazy_static! {
     static ref POSTS: HashMap<String, Post> = {
-        println!("Generating posts map!");
+        info!("Generating posts map!");
         let mut posts: HashMap<String, Post> = HashMap::new();
         for entry in std::fs::read_dir("content/posts").unwrap() {
             let entry = entry.unwrap();
@@ -47,11 +48,11 @@ lazy_static! {
                 let result = matter.parse(&content);
 
                 let Some(result_map) = result.data.as_ref() else {
-                    eprintln!("Error parsing YAML");
+                    error!("Error parsing YAML");
                     continue;
                 };
                 let Ok(result_map) = result_map.as_hashmap() else {
-                    eprintln!("Error getting hashmap from Pod");
+                    error!("Error getting hashmap from Pod");
                     continue;
                 };
 
@@ -81,7 +82,7 @@ lazy_static! {
 
                 let slug = path.file_stem().unwrap().to_string_lossy().to_string();
                 
-                println!("Loaded post \"{}\"", title);
+                info!("Loaded post \"{}\"", title);
                 posts.insert(slug, Post {
                     title,
                     description,
