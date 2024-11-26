@@ -114,5 +114,20 @@ pub fn error_page(code: StatusCode, message: &str) -> (StatusCode, Markup) {
     }).render())
 }
 
+pub fn error_page_file(code: StatusCode, message: &str) -> (StatusCode, Markup) {
+    (code, MergedPage::new_content_and_meta("404".to_string(),"File not found :(".to_string(), html! {
+        div {
+            h1 { "Error " (code.as_u16()) }
+            @if message.len() > 0 {
+                p { (message) }
+            } else {
+                p { "Looks like that file can't be found:(" }
+                p { "Have you made sure every part of the URL is correct? Capitalization matters!" }
+                a href="/" {"Return home"}
+            }
+        }
+    }).render())
+}
+
 
 // we need to build the list of posts n things
