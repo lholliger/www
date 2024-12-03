@@ -68,6 +68,11 @@ impl MergedPage {
                     footer {
                         @if self.main_page {
                             (badges())
+                            div."fah" {
+                                i { "Stay warm this winter, do some folding!" }
+                                br;
+                                a href="https://folding.extremeoverclocking.com/user_summary.php?s=&u=1353754" { img src="https://folding.extremeoverclocking.com/sigs/sigimage.php?u=1353754"; }
+                            }
                         } @else {
                             a href="/" { "Return home"}
                             br;

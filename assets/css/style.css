@@ -102,8 +102,9 @@ footer p {
         margin: 1em;
     }
 
-    badges {
-        width: auto;
+    .badges {
+        margin: 1em;
+        padding: 0 1em;
     }
 
     .header-top {
@@ -132,8 +133,13 @@ footer p {
 .badges {
     text-align: center;
     margin-bottom: 1em;
-    width: 600px;
+    width: auto;
+    max-width: 600px;
     margin: 2em auto;
+    padding: 0 2em;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
 }
 
 /* Post list styling */
@@ -163,4 +169,15 @@ a {
     font-style: italic;
     font-size: smaller;
     margin-bottom: 1rem;
+}
+
+.fah {
+    height: auto;
+    margin-bottom: 1em;
+    max-width: 100%;
+}
+
+.fah a img {
+    max-width: 90%;
+    image-rendering: pixelated;
 }
