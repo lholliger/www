@@ -1,5 +1,7 @@
 use std::{env, fs, process::Command};
 
+use maud::html;
+
 fn run_command_nicely(command: &mut Command) -> (i32, String) {
     let output = command.output();
     match output {
@@ -31,6 +33,13 @@ fn file_violates_cache_rules(path: &String) -> bool {
     }
     return true;
 }
+
+struct Badge {
+    name: String,
+    url: String,
+    paths: Vec<String>
+}
+
 
 fn main() {
     // note: add error checking yourself.
@@ -178,11 +187,9 @@ fn main() {
 
     println!("{:?}", converted_badges);
 
-    // now we need to figure out how to cache this
-    let mut badge_strings = Vec::new();
-    let mut number_mappings = Vec::new();
-    let mut badge_contents = Vec::new();
-    let mut count = 0;
+    let mut badges = Vec::new();
+    let mut builder = phf_codegen::Map::new();
+
     for (name, url, images) in &converted_badges {
         let mut image_paths = Vec::new();
         for image in images {
@@ -191,35 +198,47 @@ fn main() {
                     let ext = image.split("/").last().unwrap().split(".").last().unwrap();
                     let im_path = format!("{name}.{ext}");
                     image_paths.push(im_path.clone());
-                    number_mappings.push((im_path, count));
-                    count += 1;
-                    badge_contents.push(format!("&{:?}", contents));
+                    builder.entry(im_path, format!("&{:?}", contents).as_str());
                 },
                 Err(e) => {
                     panic!("Failed to read badge file {}: {}", image, e);
                 }
             }
         }
-        badge_strings.push(format!("(\"{}\", \"{}\", \"{}\")", name, url, image_paths.join(", ")));
+
+        badges.push(Badge {
+            name: name.to_string(),
+            url: url.to_string(),
+            paths: image_paths
+        });
     }
-    // BADGE_MAPPING exists for the lazy_static HashMap to be made... there should be be a better solution than this
-    // we shouldnt want to split in the generation phase...
-    let output = format!("const BUILD_BADGES: [(&str, &str, &str); {}] = [{}];\nconst BADGE_MAPPING: [(&str, i32); {}] = [{}];", 
-        badge_strings.len(),
-        badge_strings.join(", "),
-        number_mappings.len(),
-        number_mappings.iter()
-            .map(|(s, n)| format!("(\"{}\", {})", s, n))
-            .collect::<Vec<String>>()
-            .join(", ")
+
+    let badge_build = html! {
+        div."badges" {
+            @for (_, badge) in badges.iter().enumerate() {
+                a href=(badge.url) target="_blank" {
+                    picture class="eightyeightthirtyone" {
+                        @let urls = &badge.paths;
+                        @for (i, url) in urls.iter().enumerate() {
+                            @if i < urls.len() - 1 {
+                                source alt=(badge.name) srcset=(format!("/88x31/{}", url)) type=(format!("image/{}", url.split_once(".").unwrap().1));
+                            } @else {
+                                img alt=(badge.name) src=(format!("/88x31/{}", url));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    };
+    let output = format!("// This file was auto generated, do not modify!
+
+pub const BADGE_HTML: &str = \"{}\";
+
+static BADGE_DATA: phf::Map<&'static str, &[u8]> = {};",
+        badge_build.into_string().replace("\"", "\\\""),
+        builder.build()
     );
 
-    fs::write(format!("{out_dir}/badges.rs"), output).unwrap();    
-    // Create the array declaration with the contents
-    let output = format!("const BADGE_CONTENTS: &[&[u8]; {}] = &[{}];",
-        badge_contents.len(),
-        badge_contents.join(", ")
-    );
-
-    fs::write(format!("{out_dir}/badge_content.rs"), output).unwrap(); 
+    fs::write(format!("{out_dir}/badges.rs"), output).unwrap();
 }

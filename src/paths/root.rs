@@ -2,7 +2,7 @@ use axum::http::StatusCode;
 use chrono::{NaiveDateTime, Utc};
 use maud::{html, Markup, PreEscaped};
 
-use crate::paths::{eighteightthirtyone::badges, posts::get_posts_html};
+use crate::paths::{eighteightthirtyone::BADGE_HTML, posts::get_posts_html};
 pub struct MergedPage {
     title: Option<String>,
     meta_description: Option<String>,
@@ -67,7 +67,7 @@ impl MergedPage {
                     }
                     footer {
                         @if self.main_page {
-                            (badges())
+                            (maud::PreEscaped(BADGE_HTML))
                             div."fah" {
                                 i { "Stay warm this winter, do some folding!" }
                                 br;
