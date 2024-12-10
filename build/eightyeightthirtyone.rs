@@ -1,6 +1,12 @@
-use std::{env, fs, process::Command};
-
+use std::{fs, process::Command};
 use maud::html;
+
+
+struct Badge {
+    name: String,
+    url: String,
+    paths: Vec<String>
+}
 
 fn run_command_nicely(command: &mut Command) -> (i32, String) {
     let output = command.output();
@@ -34,27 +40,9 @@ fn file_violates_cache_rules(path: &String) -> bool {
     return true;
 }
 
-struct Badge {
-    name: String,
-    url: String,
-    paths: Vec<String>
-}
-
-
-fn main() {
-    // note: add error checking yourself.
-    let git_hash = String::from_utf8(Command::new("git").args(&["rev-parse", "--short", "HEAD"]).output().unwrap().stdout).unwrap();
-    let git_time = String::from_utf8(Command::new("git").args(&["show", "--no-patch", "--format=%ct", "HEAD"]).output().unwrap().stdout).unwrap();
-    let git_message = String::from_utf8(Command::new("git").args(&["show", "--no-patch", "--format=%B", "HEAD"]).output().unwrap().stdout).unwrap();
-    println!("cargo:rustc-env=GIT_HASH={}", git_hash);
-    println!("cargo:rustc-env=GIT_TIME={}", git_time);
-    println!("cargo:rustc-env=GIT_MESSAGE={}", git_message.trim());
-
-    // now we can get into 88x31 caching
-    println!("cargo::rerun-if-changed=content/88x31.csv");
-    let file = std::fs::read_to_string("content/88x31.csv")
-    .unwrap_or(String::new());
-    let lines = file.lines();
+// TODO: refactor to move data around cleaner, perhaps internal conversion instead of external commands
+pub fn compress_badges(out_dir: &String, csv: &String) -> Vec<(String, String, Vec<String>)> {
+    let lines = csv.lines();
     let mut badges = Vec::new();
     for line in lines {
         let fields: Vec<&str> = line.split(',').collect();
@@ -65,11 +53,10 @@ fn main() {
             badges.push((name, url, image));
         }
     }
-    println!("{:?}", badges);
-    let out_dir = env::var("OUT_DIR").unwrap();
+
     fs::create_dir_all(format!("{out_dir}/artifacts/88x31/published")).unwrap();
     fs::create_dir_all(format!("{out_dir}/artifacts/88x31/cached")).unwrap();
-    println!("{:?}", out_dir);
+
     // now lets not do the whole hotlinking thing
     let mut converted_badges = Vec::new();
     for badge in badges {
@@ -165,15 +152,12 @@ fn main() {
             if cjxl.0 == 0 {
                 println!("Cached and optimized {} for JXL", badge.0);
                 valid_save_paths.push(save_path);
-                //converted_badges.push((badge.0, badge.1, save_path));
             } else {
                 eprintln!("JXL compression failed for {}", cjxl.1);
             }
-            //converted_badges.push((badge.0, badge.1, path_to_compress));
         } else {
             // already compressed!
             println!("Serving cached and optimized file for {}", badge.0);
-            //converted_badges.push((badge.0, badge.1, save_path));
             valid_save_paths.push(save_path);
         }
 
@@ -184,9 +168,11 @@ fn main() {
             converted_badges.push((badge.0, badge.1, valid_save_paths));
         }
     }
+    return converted_badges;
+}
 
-    println!("{:?}", converted_badges);
 
+pub fn generate_badge_file(converted_badges:  Vec<(String, String, Vec<String>)>) -> String {
     let mut badges = Vec::new();
     let mut builder = phf_codegen::Map::new();
 
@@ -231,6 +217,8 @@ fn main() {
             }
         }
     };
+
+    // now we can generate the output string
     let output = format!("// This file was auto generated, do not modify!
 
 pub const BADGE_HTML: &str = \"{}\";
@@ -239,6 +227,5 @@ static BADGE_DATA: phf::Map<&'static str, &[u8]> = {};",
         badge_build.into_string().replace("\"", "\\\""),
         builder.build()
     );
-
-    fs::write(format!("{out_dir}/badges.rs"), output).unwrap();
+    return output;
 }

@@ -2,9 +2,6 @@
 .DS_Store
 old
 /artifacts
-
-# Added by cargo
-#
-# already existing elements were commented out
-
-#/target
+.idea
+.vscode
+.env
