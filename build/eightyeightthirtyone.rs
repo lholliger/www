@@ -1,4 +1,4 @@
-use std::{fs, process::Command};
+use std::fs;
 use maud::html;
 use crate::image::ImageCompressor;
 
@@ -8,42 +8,7 @@ struct Badge {
     paths: Vec<String>
 }
 
-
-
-fn run_command_nicely(command: &mut Command) -> (i32, String) {
-    let output = command.output();
-    match output {
-        Ok(output) => match output.status.code().unwrap_or(256) {
-            0 => {
-                (0, String::from_utf8_lossy(&output.stdout).to_string())
-            },
-            code => {
-                (code, String::from_utf8_lossy(&output.stderr).to_string())
-            }
-            
-        },
-        Err(e)  => (
-            e.raw_os_error().unwrap(),
-            format!("{:?}", e),
-        ),
-    }
-}
-
-fn file_violates_cache_rules(path: &String) -> bool {
-    if let Ok(metadata) = fs::metadata(path) {
-        if let Ok(modified) = metadata.modified() {
-            let age = modified.elapsed().unwrap_or_default();
-            if age.as_secs() < 60*60*24*7 {
-                return false;
-            }
-        }
-    }
-    return true;
-}
-
-
-// TODO: refactor to move data around cleaner, perhaps internal conversion instead of external commands
-pub fn compress_badges(out_dir: &String, csv_path: &str, compressor: &ImageCompressor) -> Vec<(String, String, Vec<String>)> {
+pub fn compress_badges(csv_path: &str, compressor: &ImageCompressor) -> Vec<(String, String, Vec<String>)> {
     let csv = std::fs::read_to_string(csv_path)
         .unwrap_or(String::new());
     let lines = csv.lines();
@@ -106,7 +71,7 @@ pub fn generate_badge_file(converted_badges:  Vec<(String, String, Vec<String>)>
                             @if i < urls.len() - 1 {
                                 source alt=(badge.name) srcset=(format!("/88x31/{}", url)) type=(format!("image/{}", url.split_once(".").unwrap().1));
                             } @else {
-                                img alt=(badge.name) src=(format!("/88x31/{}", url));
+                                img alt=(badge.name) width="88" height="31" src=(format!("/88x31/{}", url));
                             }
                         }
                     }

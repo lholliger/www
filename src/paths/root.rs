@@ -33,6 +33,7 @@ impl MergedPage {
 
     pub fn render(&self) -> Markup {
         html! {
+            (maud::DOCTYPE);
             html {
                 head {
                     meta charset="utf-8";
@@ -61,7 +62,7 @@ impl MergedPage {
                         div."header-top" {
                             a href="/" { h1 { "Lukas Holliger" } }
                             span alt="profile picture" class="profile-image" {
-                                (PreEscaped(INTERNAL_IMAGES["assets/images/me.jpeg"]))
+                                (PreEscaped(INTERNAL_IMAGES["assets/images/me.jpeg"].replace("type", "sizes=\"267px\" type"))) // this feels like a bad hack
                             }
                         }
                         @if self.main_page {

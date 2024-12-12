@@ -27,14 +27,9 @@ async fn main() {
         .route("/88x31/:image", get(serve_88x31))
         .route("/generated/:image", get(serve_generated_image))
         .nest_service(
-            "/assets", 
-            ServeDir::new("assets")
+            "/assets/css",
+            ServeDir::new("assets/css")
                 .not_found_service(ServeDir::new("assets").fallback(not_found_file_service.clone()))
-        )
-        .nest_service(
-            "/artifacts", 
-            ServeDir::new("artifacts")
-                .not_found_service(ServeDir::new("artifacts").fallback(not_found_file_service.clone()))
         )
         .nest_service(
             "/pub", 

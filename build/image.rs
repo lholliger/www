@@ -1,11 +1,9 @@
 use std::collections::HashMap;
 use std::fs;
-use std::io::BufRead;
 use std::process::Command;
 
 pub struct ImageCompressor {
     work_directory: String,
-    cache_age: u32,
     speed_mode: bool
 }
 
@@ -56,8 +54,6 @@ impl Image {
         if image_res_details.0 != 0 { // the command failed
             // eprintln!("Identify failed for {}", self.path);
         } else {
-            let mut have_seen_image_tag = false;
-            let mut set_main_geo = false;
             self.animated = false;
             for line in image_res_details.1.lines() {
                 if line.contains("[0]") {
@@ -115,12 +111,11 @@ fn run_command_nicely(command: &mut Command) -> (i32, String) {
 }
 
 impl ImageCompressor { // speed mode is effectively just whenever running in debug, can be disabled by flag
-    pub fn new(working_directory: &str, cache_age: u32, speed_mode: bool) -> Self {
+    pub fn new(working_directory: &str, speed_mode: bool) -> Self {
         fs::create_dir_all(format!("{working_directory}/artifacts/cache")).unwrap();
         fs::create_dir_all(format!("{working_directory}/artifacts/publish")).unwrap();
         ImageCompressor {
             work_directory: working_directory.to_string(),
-            cache_age,
             speed_mode
         }
     }
@@ -171,7 +166,7 @@ impl ImageCompressor { // speed mode is effectively just whenever running in deb
         let run_array = match override_resolutions {
             Some(resolutions) => resolutions,
             None => if !self.speed_mode {
-                vec![1800, 1530, 1200, 792, 600, working_image.width]
+                vec![1800, 1530, 1200, 792, 600, 300, working_image.width]
             } else {
                 if working_image.width < 600 {
                     vec![working_image.width]
@@ -270,7 +265,7 @@ impl ImageCompressor { // speed mode is effectively just whenever running in deb
                 };
                 if cwebp.0 == 0 {
                     println!("V2: Cached and optimized {} for WEBP", webp_version.path);
-                    &webp_version.refresh();
+                    webp_version.refresh();
                     images.push(webp_version);
                 } else {
                     eprintln!("V2: WEBP compression failed for {}", cwebp.1);
@@ -359,7 +354,7 @@ pub static INTERNAL_IMAGES: phf::Map<&'static str, &str> = {};",
 }
 
 
-pub fn convert_image_list_to_html_element_and_map(compressed_images: Vec<Image>, enforce_size: Option<usize>) -> (Vec<(Image, String)>, String) {
+pub fn convert_image_list_to_html_element_and_map(compressed_images: Vec<Image>, sizes: Option<&str>) -> (Vec<(Image, String)>, String) {
     let mut image_map = HashMap::new();
     let mut post_images = Vec::new();
     for image in &compressed_images {
@@ -372,10 +367,9 @@ pub fn convert_image_list_to_html_element_and_map(compressed_images: Vec<Image>,
         post_images.push((image.clone(), image_path));
     }
     // TODO: this can look prettier
-    let output = match enforce_size {
+    let output = match sizes {
         Some(size) => {
-        format!("<picture><source media=\"(min-width: {}px)\" sizes=\"{}px\" srcset=\"{}\"><img sizes=\"{}px\" srcset=\"{}\" src=\"{}\"></picture>\n",
-                      size,
+        format!("<picture><source type=\"image/jxl\" sizes=\"{}\" srcset=\"{}\"><img sizes=\"{}\" type=\"image/webp\" srcset=\"{}\" src=\"{}\"></picture>\n",
                       size,
                       image_map.get("jxl").expect("No JXL!").join(", "),
                       size,
@@ -384,7 +378,7 @@ pub fn convert_image_list_to_html_element_and_map(compressed_images: Vec<Image>,
                           .expect("No webp 0?").split_once(" ").expect("Malformed compression").0)
         },
         None => {
-            format!("<picture><source srcset=\"{}\"><img srcset=\"{}\" src=\"{}\"></picture>\n",
+            format!("<picture><source srcset=\"{}\" type=\"image/jxl\"><img srcset=\"{}\" type=\"image/webp\" src=\"{}\"></picture>\n",
                 image_map.get("jxl").expect("No JXL!").join(", "),
                 image_map.get("webp").expect("No WEBP!").join(", "),
                 image_map.get("webp").expect("No WEBP!").get(0)

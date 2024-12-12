@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use chrono::{DateTime, Utc};
 use gray_matter::{engine::YAML, Matter};
 use markdown::{to_html_with_options, CompileOptions, Options};
@@ -98,7 +96,7 @@ pub fn apply_compression_to_post_photos(post: &mut Post, compressor: &ImageCompr
             }
             // TODO: just use the uncompressed if failed
             let compressed_images = compressor.compress_lossy(img_path.as_str()).expect("Could not encode images");
-            let conv_output = convert_image_list_to_html_element_and_map(compressed_images, Some(600));
+            let conv_output = convert_image_list_to_html_element_and_map(compressed_images, Some("(min-width: 740px) 600px"));
             post_images.extend(conv_output.0);
             output += conv_output.1.as_str();
         } else {
