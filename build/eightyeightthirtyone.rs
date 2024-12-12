@@ -1,12 +1,14 @@
 use std::{fs, process::Command};
 use maud::html;
-
+use crate::image::ImageCompressor;
 
 struct Badge {
     name: String,
     url: String,
     paths: Vec<String>
 }
+
+
 
 fn run_command_nicely(command: &mut Command) -> (i32, String) {
     let output = command.output();
@@ -27,7 +29,6 @@ fn run_command_nicely(command: &mut Command) -> (i32, String) {
     }
 }
 
-// makes sure the file is "expired" or does not exist
 fn file_violates_cache_rules(path: &String) -> bool {
     if let Ok(metadata) = fs::metadata(path) {
         if let Ok(modified) = metadata.modified() {
@@ -40,8 +41,11 @@ fn file_violates_cache_rules(path: &String) -> bool {
     return true;
 }
 
+
 // TODO: refactor to move data around cleaner, perhaps internal conversion instead of external commands
-pub fn compress_badges(out_dir: &String, csv: &String) -> Vec<(String, String, Vec<String>)> {
+pub fn compress_badges(out_dir: &String, csv_path: &str, compressor: &ImageCompressor) -> Vec<(String, String, Vec<String>)> {
+    let csv = std::fs::read_to_string(csv_path)
+        .unwrap_or(String::new());
     let lines = csv.lines();
     let mut badges = Vec::new();
     for line in lines {
@@ -54,119 +58,12 @@ pub fn compress_badges(out_dir: &String, csv: &String) -> Vec<(String, String, V
         }
     }
 
-    fs::create_dir_all(format!("{out_dir}/artifacts/88x31/published")).unwrap();
-    fs::create_dir_all(format!("{out_dir}/artifacts/88x31/cached")).unwrap();
-
-    // now lets not do the whole hotlinking thing
     let mut converted_badges = Vec::new();
     for badge in badges {
-        let mut cache_violated = false;
-        let sum = format!("{:x}", crc32fast::hash(badge.1.as_bytes()));
-        let mut path_to_compress = badge.2;
-        if path_to_compress.starts_with("http") {
-            let ext = path_to_compress.split('.').last().unwrap(); // TODO: dont unwrap but make it work
-            let cached_path = format!("{out_dir}/artifacts/88x31/cached/{sum}.{ext}");
-            
-            if file_violates_cache_rules(&cached_path) {
-                cache_violated = true;
-                println!("{} is not already cached! Downloading...", badge.0);
-                let curl = run_command_nicely(Command::new("curl").arg(&path_to_compress).arg("-o").arg(&cached_path));
-                if curl.0 != 0 { // the command failed
-                    eprintln!("Failed to download the badge! Will ned to serve as-is for now! (Error: {:?}", curl.1);
-                    converted_badges.push((badge.0, badge.1, vec![path_to_compress]));
-                    continue;
-                }
-            }
-            path_to_compress = cached_path;
-        }
-
-        // need to allow cross-conversion, webp doesnt like jxl and jxl doesnt like webp
-        // TODO: support animated webp during this part of the build phase, currently webp must become gif
-        if path_to_compress.ends_with("webp") || path_to_compress.ends_with("jxl") {
-            let op = path_to_compress.clone();
-            path_to_compress = format!("{}.png", path_to_compress);
-            if file_violates_cache_rules(&path_to_compress) || cache_violated { // check cache_violated as the png would exist but be expired
-                cache_violated = true;
-                println!("{} is in a format that cannot be compressed easily! Converting to PNG to re-compress...", badge.0);
-                let cmpr = run_command_nicely(Command::new("convert").arg(&op).arg(&path_to_compress));
-                if cmpr.0 != 0 {
-                    eprintln!("Could not convert webp image... serving as-is for {}", badge.0);
-                    converted_badges.push((badge.0, badge.1, vec![op]));
-                    continue;
-                }
-            }
-        }
-        let mut valid_save_paths: Vec<String> = Vec::new();
-
-
-        // if gif, just serve the gif
-        if path_to_compress.ends_with("gif") {
-            println!("Serving GIF image for {}", badge.0);
-            // attempt to compress
-
-            let save_path = format!("{out_dir}/artifacts/88x31/published/{}.webp", badge.0);
-            if file_violates_cache_rules(&save_path) || cache_violated {
-                // https://github.com/gianni-rosato/minify/blob/129027ccc0ac134d05ad748b7938d255158750ac/minify.sh#L62
-                let cjxl = run_command_nicely(Command::new("gif2webp").arg("-q").arg("100").arg("-m").arg("6").arg("-metadata").arg("icc").arg(&path_to_compress).arg("-o").arg(&save_path));
-                if cjxl.0 == 0 {
-                    println!("Cached and optimized {} for Animated WEBP", badge.0);
-                    valid_save_paths.push(save_path);
-                } else {
-                    eprintln!("Animated WEBP compression failed for {}", cjxl.1);
-                }
-            } else {
-                // already compressed!
-                println!("Serving cached and optimized file for {}", badge.0);
-                valid_save_paths.push(save_path);
-            }
-
-            valid_save_paths.push(path_to_compress);
-
-            converted_badges.push((badge.0, badge.1, valid_save_paths));
-            continue;
-        }
-
-
-        // now we can try to compress it
-        let save_path: String = format!("{out_dir}/artifacts/88x31/published/{}.jxl", badge.0);
-        if file_violates_cache_rules(&save_path) || cache_violated {
-            let cjxl = run_command_nicely(Command::new("cjxl").arg("-d").arg("0").arg("-e").arg("10").arg(&path_to_compress).arg(&save_path));
-            if cjxl.0 == 0 {
-                println!("Cached and optimized {} for JXL", badge.0);
-                valid_save_paths.push(save_path);
-            } else {
-                eprintln!("JXL compression failed for {}", cjxl.1);
-            }
-        } else {
-            // already compressed!
-            println!("Serving cached and optimized file for {}", badge.0);
-            valid_save_paths.push(save_path);
-        }
-
-
-        // fallback webp
-        let save_path = format!("{out_dir}/artifacts/88x31/published/{}.webp", badge.0);
-        if file_violates_cache_rules(&save_path) || cache_violated {
-            // https://github.com/gianni-rosato/minify/blob/129027ccc0ac134d05ad748b7938d255158750ac/minify.sh#L62
-            let cjxl = run_command_nicely(Command::new("cwebp").arg("-mt").arg("-lossless").arg("-z").arg("9").arg("-alpha_filter").arg("best").arg("-metadata").arg("icc").arg(&path_to_compress).arg("-o").arg(&save_path));
-            if cjxl.0 == 0 {
-                println!("Cached and optimized {} for JXL", badge.0);
-                valid_save_paths.push(save_path);
-            } else {
-                eprintln!("JXL compression failed for {}", cjxl.1);
-            }
-        } else {
-            // already compressed!
-            println!("Serving cached and optimized file for {}", badge.0);
-            valid_save_paths.push(save_path);
-        }
-
-        // done, now we can see if anything was compressed
-        if valid_save_paths.len() == 0 {
-            converted_badges.push((badge.0, badge.1, vec![path_to_compress]));
-        } else {
-            converted_badges.push((badge.0, badge.1, valid_save_paths));
-        }
+        let compressed = compressor.compress_lossless(&badge.2)
+            .expect("Could not handle 88x31!")
+            .iter().map(|x| x.path.clone()).collect();
+        converted_badges.push((badge.0, badge.1, compressed));
     }
     return converted_badges;
 }

@@ -1,7 +1,12 @@
 use std::{env, fs, process::Command};
 mod eightyeightthirtyone;
+mod posts;
+mod image;
 
 use eightyeightthirtyone::{compress_badges, generate_badge_file};
+use posts::generate_post_map;
+use crate::image::{zip_images_and_paths_to_file, Image, ImageCompressor};
+use crate::posts::{apply_compression_to_post_photos, generate_posts_file};
 
 fn main() {
     // note: add error checking yourself.
@@ -15,10 +20,24 @@ fn main() {
 
     // now we can get into 88x31 caching
     println!("cargo::rerun-if-changed=content/88x31.csv");
-    
-    let badge_csv_content = std::fs::read_to_string("content/88x31.csv")
-        .unwrap_or(String::new());
 
-    let converted_badges = compress_badges(&out_dir, &badge_csv_content);
+    let compressor = ImageCompressor::new(out_dir.as_str(), 60*60*24*7);
+
+    let converted_badges = compress_badges(&out_dir, "content/88x31.csv", &compressor);
     fs::write(format!("{out_dir}/badges.rs"),  generate_badge_file(converted_badges)).unwrap();
+
+    println!("cargo::rerun-if-changed=posts");
+    println!("{out_dir}/badges.rs");
+    // TODO: deal with images on home page/about/etc
+    let mut posts = generate_post_map("content/posts");
+    let mut generated_images: Vec<(Image, String)> = Vec::new();
+    for post in &mut posts {
+        generated_images.extend(apply_compression_to_post_photos(post, &compressor));
+    }
+
+    fs::write(format!("{out_dir}/posts.rs"), generate_posts_file(posts)).unwrap();
+
+    // now we need to save the images!
+
+    fs::write(format!("{out_dir}/generated_images.rs"), zip_images_and_paths_to_file(generated_images)).unwrap();
 }

@@ -1,8 +1,11 @@
+use axum::extract::Path;
 use axum::http::StatusCode;
+use axum::response::Response;
 use chrono::{NaiveDateTime, Utc};
 use maud::{html, Markup, PreEscaped};
+use phf;
 
-use crate::paths::{eighteightthirtyone::BADGE_HTML, posts::get_posts_html};
+use crate::paths::{eighteightthirtyone::BADGE_HTML, posts::POST_HTML};
 pub struct MergedPage {
     title: Option<String>,
     meta_description: Option<String>,
@@ -100,7 +103,7 @@ pub fn index() -> Markup {
                     }
                     section class="content" {
                         h3 { "Posts" }
-                        (get_posts_html(5))
+                        (PreEscaped(POST_HTML))
                     }
     }, true).render()
 }
@@ -132,6 +135,27 @@ pub fn error_page_file(code: StatusCode, message: &str) -> (StatusCode, Markup) 
             }
         }
     }).render())
+}
+
+include!(concat!(env!("OUT_DIR"), "/generated_images.rs"));
+
+pub async fn serve_generated_image(Path(image): Path<String>) -> Result<Response, (StatusCode, Markup)> {
+    let image_name: String = image.to_string();
+    let ext = image_name.split_once(".").ok_or_else(|| {
+        error_page(StatusCode::BAD_REQUEST, "Invalid image name format")
+    })?;
+
+    let corrected_image_path = format!("/generated/{}", image);
+
+    if !IMAGES.contains_key(&corrected_image_path) {
+        return Err(error_page(StatusCode::NOT_FOUND, "Image not found :("))
+    }
+
+    Ok(Response::builder()
+        .status(StatusCode::OK)
+        .header("Content-Type", format!("image/{}", ext.1))
+        .body(IMAGES[&corrected_image_path].to_vec().into())
+        .unwrap())
 }
 
 
