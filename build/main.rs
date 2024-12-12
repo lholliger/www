@@ -21,7 +21,9 @@ fn main() {
     // now we can get into 88x31 caching
     println!("cargo::rerun-if-changed=content/88x31.csv");
 
-    let compressor = ImageCompressor::new(out_dir.as_str(), 60*60*24*7);
+    println!("BUILD MODE IS NOT RELEASE: {}", Ok("release".to_owned()) != env::var("PROFILE"));
+
+    let compressor = ImageCompressor::new(out_dir.as_str(), 60*60*24*7, Ok("release".to_owned()) != env::var("PROFILE"));
 
     let converted_badges = compress_badges(&out_dir, "content/88x31.csv", &compressor);
     fs::write(format!("{out_dir}/badges.rs"),  generate_badge_file(converted_badges)).unwrap();

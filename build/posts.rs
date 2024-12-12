@@ -105,7 +105,7 @@ pub fn apply_compression_to_post_photos(post: &mut Post, compressor: &ImageCompr
                 }
                 let image_path = format!("/generated/{}", image.path.split("/").last().expect("Image doesn't exist?"));
                 let asset = image_map.get_mut(&image.codec).unwrap();
-                asset.push(format!("{} {}wh", image_path, image.width));
+                asset.push(format!("{} {}w", image_path, image.width));
                 post_images.push((image.clone(), image_path));
             }
             output += format!("<picture><source media=\"(min-width: 600px)\" sizes=\"600px\" srcset=\"{}\"><img sizes=\"600px\" srcset=\"{}\" src=\"{}\"></picture>\n",

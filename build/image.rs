@@ -3,7 +3,8 @@ use std::process::Command;
 
 pub struct ImageCompressor {
     work_directory: String,
-    cache_age: u32
+    cache_age: u32,
+    speed_mode: bool
 }
 
 // this acts as an information center for the image, it may read files from the fs but it SHOULD NOT download anything!
@@ -111,18 +112,19 @@ fn run_command_nicely(command: &mut Command) -> (i32, String) {
     }
 }
 
-impl ImageCompressor {
-    pub fn new(working_directory: &str, cache_age: u32) -> Self {
+impl ImageCompressor { // speed mode is effectively just whenever running in debug, can be disabled by flag
+    pub fn new(working_directory: &str, cache_age: u32, speed_mode: bool) -> Self {
         fs::create_dir_all(format!("{working_directory}/artifacts/cache")).unwrap();
         fs::create_dir_all(format!("{working_directory}/artifacts/publish")).unwrap();
         ImageCompressor {
             work_directory: working_directory.to_string(),
-            cache_age
+            cache_age,
+            speed_mode
         }
     }
 
     // TODO: lossless / no lossless option
-    pub fn compress_with_encoding_options(&self, image_path: &str, webp_lossless: bool, webp_quality: u32, jxl_compression: f32) -> Result<Vec<Image>, &str> {
+    pub fn compress_with_encoding_options(&self, image_path: &str, webp_lossless: bool, webp_quality: u32, jxl_compression: f32, webp_animation_effort: u8, webp_effort: u8, jxl_effort: u8) -> Result<Vec<Image>, &str> {
         let mut images: Vec<Image> = Vec::new();
 
         let mut working_image = Image::new_url_or_path(&image_path.to_string(), &self.work_directory);
@@ -164,8 +166,18 @@ impl ImageCompressor {
 
         // now the working file should be in a... workable format, assuming its not animated
 
+        let run_array = if !self.speed_mode {
+            vec![1800, 1530, 1200, 792, 600, working_image.width]
+        } else {
+            if working_image.width < 600 {
+                vec![working_image.width]
+            } else {
+                vec![1200, 600]
+            }
+        };
+
         // linter says 553×353, 792×506, 1200×766, 1530×977, 1800×1149 or something close, also encode default
-        for res in [1800, 1530, 1200, 792, 600, working_image.width] {
+        for res in run_array {
             if working_image.width < res {
                 continue;
             }
@@ -183,7 +195,7 @@ impl ImageCompressor {
                         let webpa = run_command_nicely(
                             Command::new("gif2webp")
                                 .arg("-q").arg(webp_quality.to_string()).arg("-m")
-                                .arg("6").arg("-metadata").arg("icc")
+                                .arg(webp_animation_effort.to_string()).arg("-metadata").arg("icc")
                                 .arg(&working_image.path).arg("-o").arg(&webp_conversion.path)
                         );
                         if webpa.0 == 0 {
@@ -219,7 +231,7 @@ impl ImageCompressor {
 
             let mut jxl_version = Image::new_with_cache_set(format!("{}_{res}.jxl", publish_image_output), resized_version.cached);
             if jxl_version.file_violates_cache_rules() {
-                let cjxl = run_command_nicely(Command::new("cjxl").arg("-d").arg(jxl_compression.to_string()).arg("-e").arg("10").arg(&resized_version.path).arg(&jxl_version.path));
+                let cjxl = run_command_nicely(Command::new("cjxl").arg("-d").arg(jxl_compression.to_string()).arg("-e").arg(jxl_effort.to_string()).arg(&resized_version.path).arg(&jxl_version.path));
                 if cjxl.0 == 0 {
                     println!("V2: Cached and optimized {} for JXL", jxl_version.path);
                     jxl_version.refresh();
@@ -237,7 +249,7 @@ impl ImageCompressor {
                 let cwebp = if webp_lossless {
                     run_command_nicely(
                         Command::new("cwebp").arg("-mt")
-                            .arg("-lossless").arg("-z").arg("9")
+                            .arg("-lossless").arg("-z").arg(webp_effort.to_string())
                             .arg("-alpha_filter").arg("best")
                             .arg("-metadata").arg("icc")
                             .arg(&resized_version.path).arg("-o").arg(&webp_version.path)
@@ -245,7 +257,7 @@ impl ImageCompressor {
                 } else {
                     run_command_nicely(
                         Command::new("cwebp").arg("-mt")
-                            .arg("-q").arg(webp_quality.to_string()).arg("-z").arg("9")
+                            .arg("-q").arg(webp_quality.to_string()).arg("-z").arg(webp_effort.to_string())
                             .arg("-alpha_filter").arg("best")
                             .arg("-metadata").arg("icc")
                             .arg(&resized_version.path).arg("-o").arg(&webp_version.path)
@@ -267,11 +279,21 @@ impl ImageCompressor {
     }
 
     pub fn compress_lossy(&self, image_path: &str) -> Result<Vec<Image>, &str> {
-        self.compress_with_encoding_options(image_path, false, 100,  1.0)
+        if self.speed_mode {
+            return self.compress_speed(image_path)
+        }
+        self.compress_with_encoding_options(image_path, false, 100,  1.0, 6, 9, 10)
     }
 
     pub fn compress_lossless(&self, image_path: &str) -> Result<Vec<Image>, &str> {
-        self.compress_with_encoding_options(image_path, true, 100,  0.0)
+        if self.speed_mode {
+            return self.compress_speed(image_path)
+        }
+        self.compress_with_encoding_options(image_path, true, 100,  0.0, 6, 9, 10)
+    }
+
+    pub fn compress_speed(&self, image_path: &str) -> Result<Vec<Image>, &str> {
+        self.compress_with_encoding_options(image_path, false, 75, 3.0, 1, 1, 5)
     }
 }
 

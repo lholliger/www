@@ -5,6 +5,8 @@ use chrono::{NaiveDateTime, Utc};
 use maud::{html, Markup, PreEscaped};
 use phf;
 
+include!(concat!(env!("OUT_DIR"), "/generated_images.rs"));
+
 use crate::paths::{eighteightthirtyone::BADGE_HTML, posts::POST_HTML};
 pub struct MergedPage {
     title: Option<String>,
@@ -129,15 +131,13 @@ pub fn error_page_file(code: StatusCode, message: &str) -> (StatusCode, Markup) 
             @if message.len() > 0 {
                 p { (message) }
             } else {
-                p { "Looks like that file can't be found:(" }
+                p { "Looks like that file can't be found :(" }
                 p { "Have you made sure every part of the URL is correct? Capitalization matters!" }
                 a href="/" {"Return home"}
             }
         }
     }).render())
 }
-
-include!(concat!(env!("OUT_DIR"), "/generated_images.rs"));
 
 pub async fn serve_generated_image(Path(image): Path<String>) -> Result<Response, (StatusCode, Markup)> {
     let image_name: String = image.to_string();
