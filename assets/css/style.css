@@ -37,7 +37,7 @@ header {
     margin-bottom: 1em;
 }
 
-.profile-image {
+header img {
     width: 200px;
     height: 200px;
     border-radius: 50%;
