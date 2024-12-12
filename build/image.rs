@@ -1,4 +1,6 @@
+use std::collections::HashMap;
 use std::fs;
+use std::io::BufRead;
 use std::process::Command;
 
 pub struct ImageCompressor {
@@ -124,7 +126,7 @@ impl ImageCompressor { // speed mode is effectively just whenever running in deb
     }
 
     // TODO: lossless / no lossless option
-    pub fn compress_with_encoding_options(&self, image_path: &str, webp_lossless: bool, webp_quality: u32, jxl_compression: f32, webp_animation_effort: u8, webp_effort: u8, jxl_effort: u8) -> Result<Vec<Image>, &str> {
+    pub fn compress_with_encoding_options(&self, image_path: &str, webp_lossless: bool, webp_quality: u32, jxl_compression: f32, webp_animation_effort: u8, webp_effort: u8, jxl_effort: u8, override_resolutions: Option<Vec<usize>>) -> Result<Vec<Image>, &str> {
         let mut images: Vec<Image> = Vec::new();
 
         let mut working_image = Image::new_url_or_path(&image_path.to_string(), &self.work_directory);
@@ -166,13 +168,16 @@ impl ImageCompressor { // speed mode is effectively just whenever running in deb
 
         // now the working file should be in a... workable format, assuming its not animated
 
-        let run_array = if !self.speed_mode {
-            vec![1800, 1530, 1200, 792, 600, working_image.width]
-        } else {
-            if working_image.width < 600 {
-                vec![working_image.width]
+        let run_array = match override_resolutions {
+            Some(resolutions) => resolutions,
+            None => if !self.speed_mode {
+                vec![1800, 1530, 1200, 792, 600, working_image.width]
             } else {
-                vec![1200, 600]
+                if working_image.width < 600 {
+                    vec![working_image.width]
+                } else {
+                    vec![1200, 600]
+                }
             }
         };
 
@@ -282,18 +287,22 @@ impl ImageCompressor { // speed mode is effectively just whenever running in deb
         if self.speed_mode {
             return self.compress_speed(image_path)
         }
-        self.compress_with_encoding_options(image_path, false, 100,  1.0, 6, 9, 10)
+        self.compress_with_encoding_options(image_path, false, 100,  1.0, 6, 9, 10, None)
     }
 
     pub fn compress_lossless(&self, image_path: &str) -> Result<Vec<Image>, &str> {
         if self.speed_mode {
             return self.compress_speed(image_path)
         }
-        self.compress_with_encoding_options(image_path, true, 100,  0.0, 6, 9, 10)
+        self.compress_with_encoding_options(image_path, true, 100,  0.0, 6, 9, 10, None)
     }
 
     pub fn compress_speed(&self, image_path: &str) -> Result<Vec<Image>, &str> {
-        self.compress_with_encoding_options(image_path, false, 75, 3.0, 1, 1, 5)
+        self.compress_with_encoding_options(image_path, false, 75, 3.0, 1, 1, 5, None)
+    }
+
+    pub fn compress_lossy_with_custom_resolutions(&self, image_path: &str, overrides: Vec<usize>) -> Result<Vec<Image>, &str> {
+        self.compress_with_encoding_options(image_path, false, 100, 1.0, 6, 9, 10, Some(overrides))
     }
 }
 
@@ -315,4 +324,73 @@ static IMAGES: phf::Map<&'static str, &[u8]> = {};",
                          builder.build()
     );
     return output;
+}
+
+pub fn process_internal_images_to_file(csv_path: &str, compressor: &ImageCompressor) -> (Vec<(Image, String)>, String) {
+    let csv = std::fs::read_to_string(csv_path)
+        .unwrap_or(String::new());
+    let lines = csv.lines();
+    let mut images = Vec::new();
+    for line in lines {
+        let mut fields = line.split(',');
+        let name = fields.next().unwrap();
+        let resolutions = fields.map(|x| x.parse::<usize>().expect("value was not a valid integer")).collect::<Vec<_>>();
+        images.push((name, resolutions));
+    }
+
+    let mut images_output: Vec<(Image, String)> = Vec::new();
+
+    let mut builder = phf_codegen::Map::new();
+
+    for image in images {
+        let compressor_outputs = compressor.compress_lossy_with_custom_resolutions(image.0, image.1).expect("Could not compress image!");
+        let output = convert_image_list_to_html_element_and_map(compressor_outputs, None);
+        images_output.extend(output.0);
+        builder.entry(image.0.to_string(), format!("\"{}\"", output.1.replace("\"", "\\\"")).as_str());
+    }
+
+    let output = format!("// This file was auto generated, do not modify!
+
+pub static INTERNAL_IMAGES: phf::Map<&'static str, &str> = {};",
+                         builder.build()
+    );
+
+    return (images_output, output);
+}
+
+
+pub fn convert_image_list_to_html_element_and_map(compressed_images: Vec<Image>, enforce_size: Option<usize>) -> (Vec<(Image, String)>, String) {
+    let mut image_map = HashMap::new();
+    let mut post_images = Vec::new();
+    for image in &compressed_images {
+        if !image_map.contains_key(&image.codec) {
+            image_map.insert(image.codec.clone(), vec![]);
+        }
+        let image_path = format!("/generated/{}", image.path.split("/").last().expect("Image doesn't exist?"));
+        let asset = image_map.get_mut(&image.codec).unwrap();
+        asset.push(format!("{} {}w", image_path, image.width));
+        post_images.push((image.clone(), image_path));
+    }
+    // TODO: this can look prettier
+    let output = match enforce_size {
+        Some(size) => {
+        format!("<picture><source media=\"(min-width: {}px)\" sizes=\"{}px\" srcset=\"{}\"><img sizes=\"{}px\" srcset=\"{}\" src=\"{}\"></picture>\n",
+                      size,
+                      size,
+                      image_map.get("jxl").expect("No JXL!").join(", "),
+                      size,
+                      image_map.get("webp").expect("No WEBP!").join(", "),
+                      image_map.get("webp").expect("No WEBP!").get(0)
+                          .expect("No webp 0?").split_once(" ").expect("Malformed compression").0)
+        },
+        None => {
+            format!("<picture><source srcset=\"{}\"><img srcset=\"{}\" src=\"{}\"></picture>\n",
+                image_map.get("jxl").expect("No JXL!").join(", "),
+                image_map.get("webp").expect("No WEBP!").join(", "),
+                image_map.get("webp").expect("No WEBP!").get(0)
+                .expect("No webp 0?").split_once(" ").expect("Malformed compression").0)
+            }
+        };
+
+    return (post_images, output);
 }

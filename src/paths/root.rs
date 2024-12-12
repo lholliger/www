@@ -6,6 +6,7 @@ use maud::{html, Markup, PreEscaped};
 use phf;
 
 include!(concat!(env!("OUT_DIR"), "/generated_images.rs"));
+include!(concat!(env!("OUT_DIR"), "/internal_images.rs"));
 
 use crate::paths::{eighteightthirtyone::BADGE_HTML, posts::POST_HTML};
 pub struct MergedPage {
@@ -59,7 +60,9 @@ impl MergedPage {
                     header {
                         div."header-top" {
                             a href="/" { h1 { "Lukas Holliger" } }
-                            img src="/assets/images/me.jpeg" alt="profile picture" class="profile-image";
+                            span alt="profile picture" class="profile-image" {
+                                (PreEscaped(INTERNAL_IMAGES["assets/images/me.jpeg"]))
+                            }
                         }
                         @if self.main_page {
                             ul {

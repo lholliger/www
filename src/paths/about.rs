@@ -1,6 +1,6 @@
-use maud::{html, Markup};
+use maud::{html, Markup, PreEscaped};
 
-use super::root::MergedPage;
+use super::root::{MergedPage, INTERNAL_IMAGES};
 
 
 
@@ -20,7 +20,7 @@ pub async fn index() -> Markup {
         a 65 gallon saltwater aquarium complete with some fish, plenty of coral, some shrimp, and an anemone (well, 4, it keeps multiplying).
         Unfortunately my phone camera cannot take good pictures of the tank, otherwise I would put one here.
         When I am on vacation, I tend to scuba dive wrecks in the area, or coral reefs (posts soon, allegedly)." }
-        img src="/assets/images/about/diving.jpg";
+        (PreEscaped(INTERNAL_IMAGES["assets/images/about/diving.jpg"]))
         p { "On campus, I am an active member of WREK Atlanta, the school’s public radio station (available at 91.1 FM in Georgia or at " a href="https://wrek.org" {"wrek.org"} "anywhere with internet),
         where I operate the station every Friday at 11am to 12pm. I am also on the engineering team as Assistant Chief Engineer where we are currently working on modernizing some of our older systems.
         I am also on the exec board of the Amateur Radio Club (W4AQL). I'm not too active over the airwaves, but I can be found as KQ4QME!"}

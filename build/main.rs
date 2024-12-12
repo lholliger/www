@@ -5,7 +5,7 @@ mod image;
 
 use eightyeightthirtyone::{compress_badges, generate_badge_file};
 use posts::generate_post_map;
-use crate::image::{zip_images_and_paths_to_file, Image, ImageCompressor};
+use crate::image::{process_internal_images_to_file, zip_images_and_paths_to_file, Image, ImageCompressor};
 use crate::posts::{apply_compression_to_post_photos, generate_posts_file};
 
 fn main() {
@@ -28,11 +28,19 @@ fn main() {
     let converted_badges = compress_badges(&out_dir, "content/88x31.csv", &compressor);
     fs::write(format!("{out_dir}/badges.rs"),  generate_badge_file(converted_badges)).unwrap();
 
+
+    // process the random images that have changed
+    let mut generated_images: Vec<(Image, String)> = Vec::new();
+
+    let converted_images = process_internal_images_to_file("content/internal_images.csv", &compressor);
+    generated_images.extend(converted_images.0);
+
+    fs::write(format!("{out_dir}/internal_images.rs"), converted_images.1).unwrap();
+
     println!("cargo::rerun-if-changed=posts");
     println!("{out_dir}/badges.rs");
     // TODO: deal with images on home page/about/etc
     let mut posts = generate_post_map("content/posts");
-    let mut generated_images: Vec<(Image, String)> = Vec::new();
     for post in &mut posts {
         generated_images.extend(apply_compression_to_post_photos(post, &compressor));
     }

@@ -4,7 +4,7 @@ use chrono::{DateTime, Utc};
 use gray_matter::{engine::YAML, Matter};
 use markdown::{to_html_with_options, CompileOptions, Options};
 use maud::{html, Markup};
-use crate::image::{Image, ImageCompressor};
+use crate::image::{convert_image_list_to_html_element_and_map, Image, ImageCompressor};
 
 #[derive(Debug, Clone)]
 pub struct Post {
@@ -87,7 +87,7 @@ pub fn generate_post_map(directory: &str) -> Vec<Post> {
     posts
 }
 
-pub fn apply_compression_to_post_photos(post: &mut Post, compressor: &ImageCompressor) -> (Vec<(Image, String)>) {
+pub fn apply_compression_to_post_photos(post: &mut Post, compressor: &ImageCompressor) -> Vec<(Image, String)> {
     let mut output = String::new();
     let mut post_images: Vec<(Image, String)> = Vec::new();
     for line in post.text.lines() {
@@ -98,23 +98,9 @@ pub fn apply_compression_to_post_photos(post: &mut Post, compressor: &ImageCompr
             }
             // TODO: just use the uncompressed if failed
             let compressed_images = compressor.compress_lossy(img_path.as_str()).expect("Could not encode images");
-            let mut image_map = HashMap::new();
-            for image in &compressed_images {
-                if !image_map.contains_key(&image.codec) {
-                    image_map.insert(image.codec.clone(), vec![]);
-                }
-                let image_path = format!("/generated/{}", image.path.split("/").last().expect("Image doesn't exist?"));
-                let asset = image_map.get_mut(&image.codec).unwrap();
-                asset.push(format!("{} {}w", image_path, image.width));
-                post_images.push((image.clone(), image_path));
-            }
-            output += format!("<picture><source media=\"(min-width: 600px)\" sizes=\"600px\" srcset=\"{}\"><img sizes=\"600px\" srcset=\"{}\" src=\"{}\"></picture>\n",
-                              image_map.get("jxl").expect("No JXL!").join(", "),
-                              image_map.get("webp").expect("No WEBP!").join(", "),
-                              image_map.get("webp").expect("No WEBP!").get(0)
-                                  .expect("No webp 0?").split_once(" ").expect("Malformed compression").0
-            ).as_str();
-
+            let conv_output = convert_image_list_to_html_element_and_map(compressed_images, Some(600));
+            post_images.extend(conv_output.0);
+            output += conv_output.1.as_str();
         } else {
             output += format!("{}\n", line).as_str();
         }
