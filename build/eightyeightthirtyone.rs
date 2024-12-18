@@ -1,4 +1,3 @@
-use std::fs;
 use maud::html;
 use crate::image::ImageCompressor;
 
@@ -41,19 +40,11 @@ pub fn generate_badge_file(converted_badges:  Vec<(String, String, Vec<String>)>
     for (name, url, images) in &converted_badges {
         let mut image_paths = Vec::new();
         for image in images {
-            match fs::read(image) {
-                Ok(contents) => {
-                    let ext = image.split("/").last().unwrap().split(".").last().unwrap();
-                    let im_path = format!("{name}.{ext}");
-                    image_paths.push(im_path.clone());
-                    builder.entry(im_path, format!("&{:?}", contents).as_str());
-                },
-                Err(e) => {
-                    panic!("Failed to read badge file {}: {}", image, e);
-                }
-            }
+                let ext = image.split("/").last().unwrap().split(".").last().unwrap();
+                let im_path = format!("{name}.{ext}");
+                image_paths.push(im_path.clone());
+                builder.entry(im_path, format!("include_bytes!(\"{}\")", image).as_str());
         }
-
         badges.push(Badge {
             name: name.to_string(),
             url: url.to_string(),

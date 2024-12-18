@@ -61,6 +61,7 @@ Oddly enough, an old family friend owns a resort a little up the street, so I to
 
 I wanted to go on a short shore dive, but I was sorely unprepared with no towel, gear, certifications, swimsuit, etc. As I was walking on the beach, it started to pour rain (and it did a good 5 other random times during the day), so I went for some shelter and saw a nice little beach bar I could waste some more time at, as well as get a small snack before the movie since I knew I wouldn't be eating until after 9.
 At this little beach bar, I found nice $10 Mediterranean Grape Leaves. This combined with some Modelo and some discussions with the people at the bar with me was a great way to wait for the 3 p.m. bus to get to the theater at 4.
+
 ![Grape leaf wraps and a pint of beer](/assets/images/interstellar_70mm/03E76C97-6D07-4513-954A-3B275A81B78A_1_102_o.jpeg)
 
 After I wrapped up there, I hopped on the 11 bus and went to the Museum of Discovery and Science to wait.

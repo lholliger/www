@@ -120,7 +120,7 @@ impl ImageCompressor { // speed mode is effectively just whenever running in deb
         }
     }
 
-    // TODO: lossless / no lossless option
+    // TODO: overhaul to skip checking when caches are all good
     pub fn compress_with_encoding_options(&self, image_path: &str, webp_lossless: bool, webp_quality: u32, jxl_compression: f32, webp_animation_effort: u8, webp_effort: u8, jxl_effort: u8, override_resolutions: Option<Vec<usize>>) -> Result<Vec<Image>, &str> {
         let mut images: Vec<Image> = Vec::new();
 
@@ -304,14 +304,7 @@ impl ImageCompressor { // speed mode is effectively just whenever running in deb
 pub fn zip_images_and_paths_to_file(images: Vec<(Image, String)>) -> String {
     let mut builder = phf_codegen::Map::new();
     for image in images {
-        match fs::read(&image.0.path) {
-            Ok(contents) => {
-                builder.entry(image.1, format!("&{:?}", contents).as_str());
-            },
-            Err(e) => {
-                panic!("Failed to read generated image file {}: {}", image.0.path, e);
-            }
-        }
+        builder.entry(image.1, format!("include_bytes!(\"{}\")", image.0.path).as_str()); // MASSIVE speedup on building, and much less space used!
     }
     let output = format!("// This file was auto generated, do not modify!
 
