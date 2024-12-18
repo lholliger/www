@@ -39,7 +39,7 @@ There was a Spirit flight at a similar time for $20 or so more; however, from so
 
 *Well, here we go!*
 
-![Credit card transactions for Frontier Airlines and the museum](/assets/images/interstellar_70mm/IMG_5725.heic)
+![Credit card transactions for Frontier Airlines and the museum](/assets/images/interstellar_70mm/IMG_5725.jpeg)
 
 Seems like the bet paid off.
 
