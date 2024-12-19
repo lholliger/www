@@ -159,6 +159,10 @@ impl ImageCompressor { // speed mode is effectively just whenever running in deb
                 working_image.cached = false;
             }
             working_image.update_path(png_image.path);
+        } else if working_image.animated {
+            let gif_copy_path = format!("{}_orig.gif", publish_image_output);
+            fs::copy(&working_image.path, &gif_copy_path).expect("Could not copy image!");
+            working_image.update_path(gif_copy_path);
         }
 
         // now the working file should be in a... workable format, assuming its not animated
