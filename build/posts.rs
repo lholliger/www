@@ -72,13 +72,52 @@ pub fn generate_post_map(directory: &str) -> Vec<Post> {
 
             let slug = path.file_stem().unwrap().to_string_lossy().to_string();
             
+            let html_text = md_to_html(result.content);
+            let mut collected_html_text = String::new();
+            let opts = katex::Opts::builder().output_type(katex::OutputType::Mathml).build().unwrap();
+            println!("HTML Text: {}", html_text);
+            for line in html_text.lines() {
+                let mut built_line = String::new();
+                let mut equations: Vec<(usize, usize)> = Vec::new(); // starting position, length
+                // we need to go step by step to find all equations present
+                let mut curr_equation_active = false;
+                let mut starting_pos: usize = 0;
+                let line_content = line.as_bytes();
+                for char_pos in line.chars().enumerate() { // this will have issues when its the first or last character, although due to how things render this shouldnt happen
+                    if line_content[char_pos.0] == b'$' {
+                        if curr_equation_active && line_content[char_pos.0-1] != b' ' && line_content[char_pos.0-1] != b'\\' {
+                            // end of an equation!
+                            // we need to add the equation to our list of equations
+                            equations.push((starting_pos, char_pos.0 - starting_pos + 1));
+                            curr_equation_active = false;
+                        } else if !curr_equation_active && line_content[char_pos.0+1] != b' ' && line_content[char_pos.0-1] != b'\\' {
+                            // start of an equation!
+                            curr_equation_active = true;
+                            starting_pos = char_pos.0;
+                        }
+                    }
+                }
+                println!("{:?}", equations);
+                let mut current_pos = 0;
+                for equation in equations {
+                    built_line += &String::from_utf8_lossy(&line_content[current_pos..equation.0]);
+                    let equation_text = &line[equation.0+1..equation.0+equation.1-1];
+                    let rendered = katex::render_with_opts(equation_text, &opts).unwrap();
+                    built_line += &rendered;
+                    current_pos = equation.0 + equation.1;
+                }
+                built_line += &String::from_utf8_lossy(&line_content[current_pos..]);
+                collected_html_text += format!("{}\n", built_line).as_str();
+                println!("Built line: {}", built_line);
+            }
+
             posts.push(Post {
                 slug,
                 title,
                 description,
                 tags,
                 date,
-                text: md_to_html(result.content)
+                text: collected_html_text
             });
         }
     }
@@ -142,7 +181,7 @@ pub fn generate_posts_file(posts: Vec<Post>) -> String {
                 (maud::PreEscaped(&post.text))
             }
         };
-        builder.entry(post.slug.clone(), format!("(\"{}\", \"{}\", \"{}\")", post.title, post.description, html.into_string().replace("\"", "\\\"")).as_str());
+        builder.entry(post.slug.clone(), format!("(\"{}\", \"{}\", \"{}\")", post.title, post.description, html.into_string().replace("\\", "\\\\").replace("\"", "\\\"")).as_str());
     }
 
     let output = format!("// This file was auto generated, do not modify!
