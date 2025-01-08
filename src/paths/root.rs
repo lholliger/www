@@ -8,7 +8,7 @@ use phf;
 include!(concat!(env!("OUT_DIR"), "/generated_images.rs"));
 include!(concat!(env!("OUT_DIR"), "/internal_images.rs"));
 
-use crate::paths::{eighteightthirtyone::BADGE_HTML, posts::POST_HTML};
+use crate::paths::{eighteightthirtyone::BADGE_HTML, posts::POST_INDEX_HTML};
 pub struct MergedPage {
     title: Option<String>,
     meta_description: Option<String>,
@@ -109,7 +109,8 @@ pub fn index() -> Markup {
                     }
                     section class="content" {
                         h3 { "Posts" }
-                        (PreEscaped(POST_HTML))
+                        (PreEscaped(POST_INDEX_HTML))
+                        a href="/posts" {"View all posts"}
                     }
     }, true).render()
 }

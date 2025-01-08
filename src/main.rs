@@ -4,7 +4,7 @@ use axum::{
      body::Body, extract::Request, handler::HandlerWithoutStateExt, http::{Response, StatusCode}, routing::get, Router
 };
 use maud::Markup;
-use paths::{about::index, eighteightthirtyone::serve_88x31, posts::serve_post_page, root::{error_page, error_page_file}};
+use paths::{about::index, eighteightthirtyone::serve_88x31, posts::{post_full_list, serve_post_page}, root::{error_page, error_page_file}};
 use tower_http::{services::ServeDir, trace::TraceLayer};
 use tracing::{info, Span};
 use crate::paths::root::serve_generated_image;
@@ -24,6 +24,8 @@ async fn main() {
         .route("/about", get(index))
         .route("/posts/:slug", get(serve_post_page))
         .route("/posts/:slug/", get(serve_post_page))
+        .route("/posts", get(post_full_list))
+        .route("/posts/", get(post_full_list))
         .route("/88x31/:image", get(serve_88x31))
         .route("/generated/:image", get(serve_generated_image))
         .nest_service(

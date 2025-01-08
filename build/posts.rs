@@ -33,6 +33,7 @@ pub fn generate_post_map(directory: &str) -> Vec<Post> {
         let entry = entry.unwrap();
         let path = entry.path();
         if path.extension().unwrap_or_default() == "md" {
+            println!("Found post: {}", path.display());
             // some good help from https://github.com/haylinmoore/www/blob/main/src/words.rs
             let content = std::fs::read_to_string(&path).unwrap();
 
@@ -147,9 +148,7 @@ pub fn apply_compression_to_post_photos(post: &mut Post, compressor: &ImageCompr
     post_images
 }
 
-pub fn get_posts_html(mut posts: Vec<Post>) -> Markup {
-    let count = 5;
-    posts.sort_by(|a, b| b.date.cmp(&a.date));
+pub fn get_posts_html(posts: &Vec<Post>, count: usize) -> Markup {
     html! {
         div."posts" {
             ul {
@@ -184,14 +183,21 @@ pub fn generate_posts_file(posts: Vec<Post>) -> String {
         builder.entry(post.slug.clone(), format!("(\"{}\", \"{}\", \"{}\")", post.title, post.description, html.into_string().replace("\\", "\\\\").replace("\"", "\\\"")).as_str());
     }
 
+    let mut post_sorted = posts.clone();
+    post_sorted.sort_by(|a, b| b.date.cmp(&a.date));
+
     let output = format!("// This file was auto generated, do not modify!
 
-pub static POST_HTML: &str = \"{}\";
+pub static POST_INDEX_HTML: &str = \"{}\";
+
+pub static POST_LIST_HTML: &str = \"{}\";
+
 
 // title, description, content
 
 static POSTS: phf::Map<&'static str, (&str, &str, &str)> = {};",
-                         get_posts_html(posts).into_string().replace("\"", "\\\""),
+                         get_posts_html(&post_sorted, 5).into_string().replace("\"", "\\\""),
+                         get_posts_html(&post_sorted, 100).into_string().replace("\"", "\\\""), // this number would need to be increased
                          builder.build()
     );
     return output;

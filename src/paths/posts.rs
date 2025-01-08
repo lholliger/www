@@ -37,6 +37,12 @@ include!(concat!(env!("OUT_DIR"), "/posts.rs"));
     }
 }*/
 
+pub async fn post_full_list() -> Markup {
+    MergedPage::new_content_and_meta("Posts".to_string(), "All the things I've written".to_string(), html! {
+        (maud::PreEscaped(POST_LIST_HTML))
+    }).render()
+}
+
 pub async fn serve_post_page(Path(slug): Path<String>) -> Result<Markup, (StatusCode, Markup)> {
     let post_num = slug.to_string();
     if !POSTS.contains_key(&slug) {
