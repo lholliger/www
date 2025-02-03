@@ -39,7 +39,7 @@ fn main() {
 
     println!("cargo::rerun-if-changed=posts");
     println!("{out_dir}/badges.rs");
-    // TODO: deal with images on home page/about/etc
+
     let mut posts = generate_post_map("content/posts");
     for post in &mut posts {
         generated_images.extend(apply_compression_to_post_photos(post, &compressor));

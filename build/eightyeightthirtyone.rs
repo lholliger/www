@@ -53,7 +53,6 @@ pub fn generate_badge_file(converted_badges:  Vec<(String, String, Vec<String>)>
     }
 
     let badge_build = html! {
-        div."badges" {
             @for (_, badge) in badges.iter().enumerate() {
                 a href=(badge.url) target="_blank" {
                     picture class="eightyeightthirtyone" {
@@ -68,7 +67,6 @@ pub fn generate_badge_file(converted_badges:  Vec<(String, String, Vec<String>)>
                     }
                 }
             }
-        }
     };
 
     // now we can generate the output string

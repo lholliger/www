@@ -76,7 +76,11 @@ impl MergedPage {
                     }
                     footer {
                         @if self.main_page {
-                            (maud::PreEscaped(BADGE_HTML))
+                            div."badges" {
+                                (maud::PreEscaped(BADGE_HTML))
+                                a href="https://planes.holliger.me" { img src="http://localhost:8080/88x31.png?lat=33.77601&lon=-84.39299"; }
+
+                            }
                             div."fah" {
                                 i { "Stay warm this winter, do some folding!" }
                                 br;

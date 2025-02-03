@@ -2,9 +2,22 @@ use std::collections::HashMap;
 use std::fs;
 use std::process::Command;
 
+use serde::{Deserialize, Serialize};
+
 pub struct ImageCompressor {
     work_directory: String,
-    speed_mode: bool
+    speed_mode: bool,
+    cache: HashMap<String, ImageCacheElement>
+}
+
+// this needs to have the elements in Image so when there's a cache hit the values can be put in
+#[derive(Deserialize, Serialize)]
+struct ImageCacheElement {
+    modified: u64,
+    size: u64,
+    width: usize,
+    height: usize,
+    animated: bool
 }
 
 // this acts as an information center for the image, it may read files from the fs but it SHOULD NOT download anything!
@@ -114,10 +127,21 @@ impl ImageCompressor { // speed mode is effectively just whenever running in deb
     pub fn new(working_directory: &str, speed_mode: bool) -> Self {
         fs::create_dir_all(format!("{working_directory}/artifacts/cache")).unwrap();
         fs::create_dir_all(format!("{working_directory}/artifacts/publish")).unwrap();
+        let mut cache = HashMap::new();
+        if let Ok(cache_str) = fs::read_to_string(format!("{working_directory}/artifacts/cache/cache.json")) {
+            cache = serde_json::from_str(&cache_str).unwrap_or_default();
+        }
+
         ImageCompressor {
             work_directory: working_directory.to_string(),
-            speed_mode
+            speed_mode,
+            cache
         }
+    }
+
+    fn write_cache(&self) {
+        let cache_str = serde_json::to_string(&self.cache).unwrap();
+        fs::write(format!("{}/artifacts/cache/cache.json", self.work_directory), cache_str).unwrap();
     }
 
     // TODO: overhaul to skip checking when caches are all good
