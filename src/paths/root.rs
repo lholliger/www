@@ -1,34 +1,31 @@
-use axum::extract::Path;
+use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use axum::response::Response;
 use chrono::{NaiveDateTime, Utc};
 use maud::{html, Markup, PreEscaped};
-use phf;
 
-include!(concat!(env!("OUT_DIR"), "/generated_images.rs"));
-include!(concat!(env!("OUT_DIR"), "/internal_images.rs"));
-
-use crate::paths::{eighteightthirtyone::BADGE_HTML, posts::POST_INDEX_HTML};
+use crate::util::state::SiteState;
 pub struct MergedPage {
     title: Option<String>,
     meta_description: Option<String>,
     meta_image: Option<String>,
     body: PreEscaped<String>,
-    main_page: bool
+    main_page: bool,
+    state: Option<SiteState>
 }
 
 impl MergedPage {
     // may want to generate a description based off of the content
-    pub fn new(title: Option<String>, description: Option<String>, image: Option<String>, body: PreEscaped<String>, main_page: bool) -> MergedPage {
-        MergedPage { title, meta_description: description, meta_image: image, body, main_page }
+    pub fn new(title: Option<String>, description: Option<String>, image: Option<String>, body: PreEscaped<String>, main_page: bool, state: SiteState) -> MergedPage {
+        MergedPage { title, meta_description: description, meta_image: image, body, main_page, state: Some(state) }
     }
 
-    pub fn new_content_and_meta(title: String, description: String, body: PreEscaped<String>) -> MergedPage {
-        MergedPage::new(Some(title), Some(description), None, body, false)
+    pub fn new_content_and_meta(title: String, description: String, body: PreEscaped<String>, state: SiteState) -> MergedPage {
+        MergedPage::new(Some(title), Some(description), None, body, false, state)
     }
 
-    pub fn new_content_and_meta_main(title: String, description: String, body: PreEscaped<String>) -> MergedPage {
-        MergedPage::new(Some(title), Some(description), None, body, true)
+    pub fn new_content_and_meta_main(title: String, description: String, body: PreEscaped<String>, state: SiteState) -> MergedPage {
+        MergedPage::new(Some(title), Some(description), None, body, true, state)
     }
 
     pub fn render(&self) -> Markup {
@@ -62,7 +59,9 @@ impl MergedPage {
                         div."header-top" {
                             a href="/" { h1 { "Lukas Holliger" } }
                             span alt="profile picture" class="profile-image" {
-                                (PreEscaped(INTERNAL_IMAGES["assets/images/me.jpeg"].replace("type", "sizes=\"267px\" type"))) // this feels like a bad hack
+                                 @if let Some(state) = &self.state {
+                                    (PreEscaped(state.map_internal_image("assets/images/me.jpeg").replace("type", "sizes=\"267px\" type"))) // this feels like a bad hack
+                                }
                             }
                         }
                         @if self.main_page {
@@ -77,9 +76,9 @@ impl MergedPage {
                     footer {
                         @if self.main_page {
                             div."badges" {
-                                (maud::PreEscaped(BADGE_HTML))
-                                a href="https://planes.holliger.me" { img src="http://localhost:8080/88x31.png?lat=33.77601&lon=-84.39299"; }
-
+                                @if let Some(state) = &self.state {
+                                    (maud::PreEscaped(state.get_cached_html_element("badge_html")))
+                                }
                             }
                             div."fah" {
                                 i { "Stay warm this winter, do some folding!" }
@@ -101,7 +100,7 @@ impl MergedPage {
     }
 }
 
-pub fn index() -> Markup {
+pub fn index(state: SiteState) -> Markup {
     MergedPage::new(None, Some("Hello 👋 I'm Lukas".to_string()), Some("/assets/images/me.jpeg".to_string()), html! {
                     section class="hero" {
                         h2 { "Hello 👋 I'm Lukas" }
@@ -113,13 +112,13 @@ pub fn index() -> Markup {
                     }
                     section class="content" {
                         h3 { "Posts" }
-                        (PreEscaped(POST_INDEX_HTML))
+                        (PreEscaped(state.get_cached_html_element("post_index_html")))
                         a href="/posts" {"View all posts"}
                     }
-    }, true).render()
+    }, true, state).render()
 }
 
-pub fn error_page(code: StatusCode, message: &str) -> (StatusCode, Markup) {
+pub fn error_page(code: StatusCode, message: &str, state: SiteState) -> (StatusCode, Markup) {
     (code, MergedPage::new_content_and_meta("404".to_string(),"Page not found :(".to_string(), html! {
         div {
             h1 { "Error " (code.as_u16()) }
@@ -130,10 +129,10 @@ pub fn error_page(code: StatusCode, message: &str) -> (StatusCode, Markup) {
                 a href="/" {"Return home"}
             }
         }
-    }).render())
+    }, state).render())
 }
 
-pub fn error_page_file(code: StatusCode, message: &str) -> (StatusCode, Markup) {
+pub fn error_page_file(code: StatusCode, message: &str, state: SiteState) -> (StatusCode, Markup) {
     (code, MergedPage::new_content_and_meta("404".to_string(),"File not found :(".to_string(), html! {
         div {
             h1 { "Error " (code.as_u16()) }
@@ -145,25 +144,25 @@ pub fn error_page_file(code: StatusCode, message: &str) -> (StatusCode, Markup) 
                 a href="/" {"Return home"}
             }
         }
-    }).render())
+    }, state).render())
 }
 
-pub async fn serve_generated_image(Path(image): Path<String>) -> Result<Response, (StatusCode, Markup)> {
+pub async fn serve_generated_image(State(state): State<SiteState>, Path(image): Path<String>) -> Result<Response, (StatusCode, Markup)> {
     let image_name: String = image.to_string();
     let ext = image_name.split_once(".").ok_or_else(|| {
-        error_page(StatusCode::BAD_REQUEST, "Invalid image name format")
+        error_page(StatusCode::BAD_REQUEST, "Invalid image name format", state.clone())
     })?;
 
     let corrected_image_path = format!("/generated/{}", image);
 
-    if !IMAGES.contains_key(&corrected_image_path) {
-        return Err(error_page(StatusCode::NOT_FOUND, "Image not found :("))
-    }
+    let image_data = state.get_image(&corrected_image_path).ok_or_else(|| {
+        error_page(StatusCode::NOT_FOUND, "Image not found :(", state)
+    })?;
 
     Ok(Response::builder()
         .status(StatusCode::OK)
         .header("Content-Type", format!("image/{}", ext.1))
-        .body(IMAGES[&corrected_image_path].to_vec().into())
+        .body(image_data.to_vec().into())
         .unwrap())
 }
 

@@ -2,18 +2,9 @@ use chrono::{DateTime, Utc};
 use gray_matter::{engine::YAML, Matter};
 use markdown::{to_html_with_options, CompileOptions, Options};
 use maud::{html, Markup};
-use crate::image::{convert_image_list_to_html_element_and_map, Image, ImageCompressor};
+use tracing::trace;
 
-#[derive(Debug, Clone)]
-pub struct Post {
-    slug: String,
-    title: String,
-    date: DateTime<Utc>,
-    description: String,
-    tags: Vec<String>,
-    text: String,
-}
-
+use crate::{paths::posts::Post, util::build::image::{convert_image_list_to_html_element_and_map, Image, ImageCompressor}};
 
 pub fn md_to_html(md: String) -> String {
     let result = to_html_with_options(md.as_str(), &Options {
@@ -33,7 +24,7 @@ pub fn generate_post_map(directory: &str) -> Vec<Post> {
         let entry = entry.unwrap();
         let path = entry.path();
         if path.extension().unwrap_or_default() == "md" {
-            println!("Found post: {}", path.display());
+            trace!("Found post: {}", path.display());
             // some good help from https://github.com/haylinmoore/www/blob/main/src/words.rs
             let content = std::fs::read_to_string(&path).unwrap();
 
@@ -76,7 +67,7 @@ pub fn generate_post_map(directory: &str) -> Vec<Post> {
             let html_text = md_to_html(result.content);
             let mut collected_html_text = String::new();
             let opts = katex::Opts::builder().output_type(katex::OutputType::Mathml).build().unwrap();
-            println!("HTML Text: {}", html_text);
+            //println!("HTML Text: {}", html_text);
             for line in html_text.lines() {
                 let mut built_line = String::new();
                 let mut equations: Vec<(usize, usize)> = Vec::new(); // starting position, length
@@ -98,7 +89,7 @@ pub fn generate_post_map(directory: &str) -> Vec<Post> {
                         }
                     }
                 }
-                println!("{:?}", equations);
+                //println!("{:?}", equations);
                 let mut current_pos = 0;
                 for equation in equations {
                     built_line += &String::from_utf8_lossy(&line_content[current_pos..equation.0]);
@@ -109,7 +100,7 @@ pub fn generate_post_map(directory: &str) -> Vec<Post> {
                 }
                 built_line += &String::from_utf8_lossy(&line_content[current_pos..]);
                 collected_html_text += format!("{}\n", built_line).as_str();
-                println!("Built line: {}", built_line);
+                //println!("Built line: {}", built_line);
             }
 
             posts.push(Post {
@@ -165,40 +156,4 @@ pub fn get_posts_html(posts: &Vec<Post>, count: usize) -> Markup {
             }
         }
     }
-}
-
-
-pub fn generate_posts_file(posts: Vec<Post>) -> String {
-    let mut builder = phf_codegen::Map::new();
-
-    for post in &posts {
-        let html = html! {
-            h1 { (post.title) }
-            p."post-date" { (post.date.format("%Y-%m-%d")) }
-            p."description" { (post.description) }
-            div."post-content" {
-                (maud::PreEscaped(&post.text))
-            }
-        };
-        builder.entry(post.slug.clone(), format!("(\"{}\", \"{}\", \"{}\")", post.title, post.description, html.into_string().replace("\\", "\\\\").replace("\"", "\\\"")).as_str());
-    }
-
-    let mut post_sorted = posts.clone();
-    post_sorted.sort_by(|a, b| b.date.cmp(&a.date));
-
-    let output = format!("// This file was auto generated, do not modify!
-
-pub static POST_INDEX_HTML: &str = \"{}\";
-
-pub static POST_LIST_HTML: &str = \"{}\";
-
-
-// title, description, content
-
-static POSTS: phf::Map<&'static str, (&str, &str, &str)> = {};",
-                         get_posts_html(&post_sorted, 5).into_string().replace("\"", "\\\""),
-                         get_posts_html(&post_sorted, 100).into_string().replace("\"", "\\\""), // this number would need to be increased
-                         builder.build()
-    );
-    return output;
 }

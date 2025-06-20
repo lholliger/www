@@ -1,10 +1,11 @@
 use maud::html;
-use crate::image::ImageCompressor;
+use crate::util::build::image::ImageCompressor;
 
-struct Badge {
-    name: String,
+#[derive(Debug, Clone)]
+pub struct Badge {
+    pub name: String,
     url: String,
-    paths: Vec<String>
+    pub paths: Vec<String>
 }
 
 pub fn compress_badges(csv_path: &str, compressor: &ImageCompressor) -> Vec<(String, String, Vec<String>)> {
@@ -33,17 +34,17 @@ pub fn compress_badges(csv_path: &str, compressor: &ImageCompressor) -> Vec<(Str
 }
 
 
-pub fn generate_badge_file(converted_badges:  Vec<(String, String, Vec<String>)>) -> String {
+pub fn generate_badge_file(converted_badges:  Vec<(String, String, Vec<String>)>) -> (String, Vec<Badge>, Vec<(String, Vec<u8>)>) {
     let mut badges = Vec::new();
-    let mut builder = phf_codegen::Map::new();
-
+    let mut image_data = Vec::new();
     for (name, url, images) in &converted_badges {
         let mut image_paths = Vec::new();
         for image in images {
                 let ext = image.split("/").last().unwrap().split(".").last().unwrap();
                 let im_path = format!("{name}.{ext}");
                 image_paths.push(im_path.clone());
-                builder.entry(im_path, format!("include_bytes!(\"{}\")", image).as_str());
+                let data = std::fs::read(image).expect(&format!("Failed to read image: {}", image));
+                image_data.push((format!("/generated/88x31_{}", im_path), data));
         }
         badges.push(Badge {
             name: name.to_string(),
@@ -59,9 +60,9 @@ pub fn generate_badge_file(converted_badges:  Vec<(String, String, Vec<String>)>
                         @let urls = &badge.paths;
                         @for (i, url) in urls.iter().enumerate() {
                             @if i < urls.len() - 1 {
-                                source alt=(badge.name) srcset=(format!("/88x31/{}", url)) type=(format!("image/{}", url.split_once(".").unwrap().1));
+                                source alt=(badge.name) srcset=(format!("/generated/88x31_{}", url)) type=(format!("image/{}", url.split_once(".").unwrap().1));
                             } @else {
-                                img alt=(badge.name) width="88" height="31" src=(format!("/88x31/{}", url));
+                                img alt=(badge.name) width="88" height="31" src=(format!("/generated/88x31_{}", url));
                             }
                         }
                     }
@@ -69,14 +70,5 @@ pub fn generate_badge_file(converted_badges:  Vec<(String, String, Vec<String>)>
             }
     };
 
-    // now we can generate the output string
-    let output = format!("// This file was auto generated, do not modify!
-
-pub const BADGE_HTML: &str = \"{}\";
-
-static BADGE_DATA: phf::Map<&'static str, &[u8]> = {};",
-        badge_build.into_string().replace("\"", "\\\""),
-        builder.build()
-    );
-    return output;
+    return (badge_build.into_string(), badges, image_data)
 }

@@ -5,3 +5,4 @@ Dockerfile
 data
 .DS_Store
 dropbox
+database

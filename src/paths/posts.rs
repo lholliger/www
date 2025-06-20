@@ -1,19 +1,21 @@
-use axum::{extract::Path, http::StatusCode};
+use axum::{extract::{Path, State}, http::StatusCode};
 use chrono::{DateTime, Utc};
 use maud::{html, Markup};
+use serde::{Deserialize, Serialize};
+
+use crate::util::state::SiteState;
 
 use super::root::{error_page, MergedPage};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Post {
-    title: String,
-    date: DateTime<Utc>,
-    description: String,
-    tags: Vec<String>,
-    text: String,
+    pub slug: String,
+    pub title: String,
+    pub date: DateTime<Utc>,
+    pub description: String,
+    pub tags: Vec<String>,
+    pub text: String,
 }
-
-include!(concat!(env!("OUT_DIR"), "/posts.rs"));
 
 // TODO: add pagination
 /*pub fn get_posts_html(count: usize) -> Markup {
@@ -37,20 +39,18 @@ include!(concat!(env!("OUT_DIR"), "/posts.rs"));
     }
 }*/
 
-pub async fn post_full_list() -> Markup {
+pub async fn post_full_list(State(state): State<SiteState>) -> Markup {
     MergedPage::new_content_and_meta("Posts".to_string(), "All the things I've written".to_string(), html! {
-        (maud::PreEscaped(POST_LIST_HTML))
-    }).render()
+        (maud::PreEscaped(state.get_cached_html_element("post_list_html")))
+    }, state).render()
 }
 
-pub async fn serve_post_page(Path(slug): Path<String>) -> Result<Markup, (StatusCode, Markup)> {
-    let post_num = slug.to_string();
-    if !POSTS.contains_key(&slug) {
-        return Err(error_page(StatusCode::NOT_FOUND, "Post not found :("))
+pub async fn serve_post_page(State(state): State<SiteState>, Path(slug): Path<String>) -> Result<Markup, (StatusCode, Markup)> {
+    let post = state.get_post(&slug);
+    match post {
+        Ok(post) => Ok(MergedPage::new_content_and_meta(post.title, post.description, html! {
+            (maud::PreEscaped(&post.text))
+    }, state).render()),
+        Err(_) => return Err(error_page(StatusCode::NOT_FOUND, "Post not found :(", state))
     }
-
-    let post = POSTS.get(&post_num).unwrap();
-    Ok(MergedPage::new_content_and_meta(post.0.to_string(), post.1.to_string(), html! {
-            (maud::PreEscaped(&post.2))
-    }).render())
 }

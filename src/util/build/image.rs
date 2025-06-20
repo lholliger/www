@@ -3,11 +3,11 @@ use std::fs;
 use std::process::Command;
 
 use serde::{Deserialize, Serialize};
+use tracing::{debug, error, trace, warn};
 
 pub struct ImageCompressor {
     work_directory: String,
-    speed_mode: bool,
-    cache: HashMap<String, ImageCacheElement>
+    speed_mode: bool
 }
 
 // this needs to have the elements in Image so when there's a cache hit the values can be put in
@@ -127,21 +127,11 @@ impl ImageCompressor { // speed mode is effectively just whenever running in deb
     pub fn new(working_directory: &str, speed_mode: bool) -> Self {
         fs::create_dir_all(format!("{working_directory}/artifacts/cache")).unwrap();
         fs::create_dir_all(format!("{working_directory}/artifacts/publish")).unwrap();
-        let mut cache = HashMap::new();
-        if let Ok(cache_str) = fs::read_to_string(format!("{working_directory}/artifacts/cache/cache.json")) {
-            cache = serde_json::from_str(&cache_str).unwrap_or_default();
-        }
 
         ImageCompressor {
             work_directory: working_directory.to_string(),
-            speed_mode,
-            cache
+            speed_mode
         }
-    }
-
-    fn write_cache(&self) {
-        let cache_str = serde_json::to_string(&self.cache).unwrap();
-        fs::write(format!("{}/artifacts/cache/cache.json", self.work_directory), cache_str).unwrap();
     }
 
     // TODO: overhaul to skip checking when caches are all good
@@ -149,11 +139,11 @@ impl ImageCompressor { // speed mode is effectively just whenever running in deb
         let mut images: Vec<Image> = Vec::new();
 
         let mut working_image = Image::new_url_or_path(&image_path.to_string(), &self.work_directory);
-        println!("{:?}", working_image);
+        trace!("{:?}", working_image);
         // we must download the image first, or verify it is already cached and not expired
         if image_path.starts_with("http") {
             if working_image.file_violates_cache_rules() { // may not exist
-                println!("{} is not already cached! Downloading...", &image_path);
+                debug!("{} is not already cached! Downloading...", &image_path);
                 let curl = run_command_nicely(Command::new("curl").arg(&image_path).arg("-o").arg(&working_image.path));
                 if curl.0 != 0 { // the command failed
                     // could not serve the image!
@@ -174,10 +164,10 @@ impl ImageCompressor { // speed mode is effectively just whenever running in deb
         if (working_image.path.ends_with("webp") || working_image.path.ends_with("jxl")) && !working_image.animated {
             let png_image = Image::new(format!("{}.png", cache_image_output));
             if png_image.file_violates_cache_rules() { // we dont need to do PNG conversion if the file has never changed and doenst need to be re-encoded
-                println!("{} is in a format that cannot be compressed easily! Converting to PNG to re-compress...", working_image.path);
+                warn!("{} is in a format that cannot be compressed easily! Converting to PNG to re-compress...", working_image.path);
                 let cmpr = run_command_nicely(Command::new("convert").arg(&working_image.path).arg(&png_image.path));
                 if cmpr.0 != 0 {
-                    eprintln!("Could not convert webp image... must serve AS-IS!");
+                    error!("Could not convert webp image... must serve AS-IS!");
                     return Ok(vec![working_image]);
                 }
                 working_image.cached = false;
@@ -227,10 +217,10 @@ impl ImageCompressor { // speed mode is effectively just whenever running in deb
                                 .arg(&working_image.path).arg("-o").arg(&webp_conversion.path)
                         );
                         if webpa.0 == 0 {
-                            println!("Cached and optimized {} for Animated WEBP", working_image.path);
+                            debug!("Cached and optimized {} for Animated WEBP", working_image.path);
                             webp_conversion.refresh();
                         } else {
-                            eprintln!("Animated WEBP compression failed for {}", working_image.path);
+                            warn!("Animated WEBP compression failed for {}", working_image.path);
                         }
                     }
                     if webp_conversion.animated == true {
@@ -244,10 +234,10 @@ impl ImageCompressor { // speed mode is effectively just whenever running in deb
             // so we need to resize first...
             let mut resized_version = Image::new_with_cache_set(format!("{}_resize_pre_{res}.png", cache_image_output), working_image.cached);
             if resized_version.file_violates_cache_rules() {
-                println!("Resizing {} to {}px width", working_image.path, res);
+                debug!("Resizing {} to {}px width", working_image.path, res);
                 let resize = run_command_nicely(Command::new("convert").arg(&working_image.path).arg("-resize").arg(format!("{}x", res)).arg(&resized_version.path));
                 if resize.0 != 0 {
-                    eprintln!("Could not resize image! Cancelling");
+                    error!("Could not resize image! Cancelling");
                     return Ok(vec![working_image]);
                 }
                 resized_version.refresh();
@@ -261,14 +251,14 @@ impl ImageCompressor { // speed mode is effectively just whenever running in deb
             if jxl_version.file_violates_cache_rules() {
                 let cjxl = run_command_nicely(Command::new("cjxl").arg("-d").arg(jxl_compression.to_string()).arg("-e").arg(jxl_effort.to_string()).arg(&resized_version.path).arg(&jxl_version.path));
                 if cjxl.0 == 0 {
-                    println!("V2: Cached and optimized {} for JXL", jxl_version.path);
+                    debug!("V2: Cached and optimized {} for JXL", jxl_version.path);
                     jxl_version.refresh();
                     images.push(jxl_version);
                 } else {
-                    eprintln!("V2: JXL compression failed for {}", cjxl.1);
+                    error!("V2: JXL compression failed for {}", cjxl.1);
                 }
             } else {
-                println!("V2: Using optimized {} for JXL", jxl_version.path);
+                debug!("V2: Using optimized {} for JXL", jxl_version.path);
                 images.push(jxl_version);
             }
 
@@ -292,14 +282,14 @@ impl ImageCompressor { // speed mode is effectively just whenever running in deb
                     )
                 };
                 if cwebp.0 == 0 {
-                    println!("V2: Cached and optimized {} for WEBP", webp_version.path);
+                    debug!("V2: Cached and optimized {} for WEBP", webp_version.path);
                     webp_version.refresh();
                     images.push(webp_version);
                 } else {
-                    eprintln!("V2: WEBP compression failed for {}", cwebp.1);
+                    error!("V2: WEBP compression failed for {}", cwebp.1);
                 }
             } else {
-                println!("V2: Using optimized {} for WEBP", webp_version.path);
+                debug!("V2: Using optimized {} for WEBP", webp_version.path);
                 images.push(webp_version);
             }
         }
@@ -310,14 +300,14 @@ impl ImageCompressor { // speed mode is effectively just whenever running in deb
         if self.speed_mode {
             return self.compress_speed(image_path)
         }
-        self.compress_with_encoding_options(image_path, false, 100,  1.0, 6, 9, 10, None)
+        self.compress_with_encoding_options(image_path, false, 100,  1.0, 6, 9, 9, None)
     }
 
     pub fn compress_lossless(&self, image_path: &str) -> Result<Vec<Image>, &str> {
         if self.speed_mode {
             return self.compress_speed(image_path)
         }
-        self.compress_with_encoding_options(image_path, true, 100,  0.0, 6, 9, 10, None)
+        self.compress_with_encoding_options(image_path, true, 100,  0.0, 6, 9, 9, None)
     }
 
     pub fn compress_speed(&self, image_path: &str) -> Result<Vec<Image>, &str> {
@@ -325,24 +315,11 @@ impl ImageCompressor { // speed mode is effectively just whenever running in deb
     }
 
     pub fn compress_lossy_with_custom_resolutions(&self, image_path: &str, overrides: Vec<usize>) -> Result<Vec<Image>, &str> {
-        self.compress_with_encoding_options(image_path, false, 100, 1.0, 6, 9, 10, Some(overrides))
+        self.compress_with_encoding_options(image_path, false, 100, 1.0, 6, 9, 9, Some(overrides))
     }
 }
 
-pub fn zip_images_and_paths_to_file(images: Vec<(Image, String)>) -> String {
-    let mut builder = phf_codegen::Map::new();
-    for image in images {
-        builder.entry(image.1, format!("include_bytes!(\"{}\")", image.0.path).as_str()); // MASSIVE speedup on building, and much less space used!
-    }
-    let output = format!("// This file was auto generated, do not modify!
-
-static IMAGES: phf::Map<&'static str, &[u8]> = {};",
-                         builder.build()
-    );
-    return output;
-}
-
-pub fn process_internal_images_to_file(csv_path: &str, compressor: &ImageCompressor) -> (Vec<(Image, String)>, String) {
+pub fn process_internal_images_to_file(csv_path: &str, compressor: &ImageCompressor) -> (Vec<(Image, String)>, HashMap<String, String>) {
     let csv = std::fs::read_to_string(csv_path)
         .unwrap_or(String::new());
     let lines = csv.lines();
@@ -356,22 +333,15 @@ pub fn process_internal_images_to_file(csv_path: &str, compressor: &ImageCompres
 
     let mut images_output: Vec<(Image, String)> = Vec::new();
 
-    let mut builder = phf_codegen::Map::new();
+    let mut image_map = HashMap::new();
 
     for image in images {
         let compressor_outputs = compressor.compress_lossy_with_custom_resolutions(image.0, image.1).expect("Could not compress image!");
         let output = convert_image_list_to_html_element_and_map(compressor_outputs, None);
         images_output.extend(output.0);
-        builder.entry(image.0.to_string(), format!("\"{}\"", output.1.replace("\"", "\\\"")).as_str());
+        image_map.insert(image.0.to_string(), output.1);
     }
-
-    let output = format!("// This file was auto generated, do not modify!
-
-pub static INTERNAL_IMAGES: phf::Map<&'static str, &str> = {};",
-                         builder.build()
-    );
-
-    return (images_output, output);
+    return (images_output, image_map);
 }
 
 
