@@ -16,18 +16,24 @@ pub struct MergedPage {
 
 impl MergedPage {
     // may want to generate a description based off of the content
-    pub fn new(title: Option<String>, description: Option<String>, image: Option<String>, body: PreEscaped<String>, main_page: bool, state: SiteState) -> MergedPage {
-        MergedPage { title, meta_description: description, meta_image: image, body, main_page, state: Some(state) }
+    pub fn new(title: Option<&str>, description: Option<&str>, image: Option<&str>, body: PreEscaped<String>, main_page: bool, state: SiteState) -> MergedPage {
+        MergedPage {
+            title: title.map(|s| s.to_string()),
+            meta_description: description.map(|s| s.to_string()),
+            meta_image: image.map(|s| s.to_string()),
+            body,
+            main_page,
+            state: Some(state)
+        }
     }
 
-    pub fn new_content_and_meta(title: String, description: String, body: PreEscaped<String>, state: SiteState) -> MergedPage {
+    pub fn new_content_and_meta(title: &str, description: &str, body: PreEscaped<String>, state: SiteState) -> MergedPage {
         MergedPage::new(Some(title), Some(description), None, body, false, state)
     }
 
-    pub fn new_content_and_meta_main(title: String, description: String, body: PreEscaped<String>, state: SiteState) -> MergedPage {
+    pub fn new_content_and_meta_main(title: &str, description: &str, body: PreEscaped<String>, state: SiteState) -> MergedPage {
         MergedPage::new(Some(title), Some(description), None, body, true, state)
     }
-
     pub fn render(&self) -> Markup {
         html! {
             (maud::DOCTYPE);
@@ -80,11 +86,11 @@ impl MergedPage {
                                     (maud::PreEscaped(state.get_cached_html_element("badge_html")))
                                 }
                             }
-                            div."fah" {
+                            /*div."fah" { // its summer!
                                 i { "Stay warm this winter, do some folding!" }
                                 br;
                                 a href="https://folding.extremeoverclocking.com/user_summary.php?s=&u=1353754" { img src="https://folding.extremeoverclocking.com/sigs/sigimage.php?u=1353754"; }
-                            }
+                            }*/
                         } @else {
                             a href="/" { "Return home"}
                             br;
@@ -101,10 +107,10 @@ impl MergedPage {
 }
 
 pub fn index(state: SiteState) -> Markup {
-    MergedPage::new(None, Some("Hello 👋 I'm Lukas".to_string()), Some("/assets/images/me.jpeg".to_string()), html! {
+    MergedPage::new(None, Some("Hello 👋 I'm Lukas"), Some("/assets/images/me.jpeg"), html! {
                     section class="hero" {
                         h2 { "Hello 👋 I'm Lukas" }
-                        p { "I'm a software engineer in Atlanta, Georgia currently studying Computer Engineering at Georgia Tech. I was previously (and will be in 2025) an intern at Apple, working in Services Engineering where I have worked on various HLS and metadata technologies." }
+                        p { "I'm a software engineer from Atlanta, Georgia currently studying Computer Engineering at Georgia Tech. I am currently an intern at Apple working in Services Engineering where I have work on various video technologies in areas around streaming and metadata." }
                         p { "I have experience and enjoy working with large sums of data in Rust, JavaScript, and/or TypeScript. In the past I've analyzed millions of projects and accounts on Scratch, as well as made an API to query ranking information.
                         At Apple, I've worked on HLS technologies in areas of metadata, live streaming, and ad serving."}
                         p { "Currently I'm between a lot of different projects (a lot to do with video encoding and also QR codes, perhaps both together at the same time), and yet another class requires me to make a blog/website, so this website is existing from that class and also pressure from many friends. Hopefully this one I can keep up to date!" }
@@ -119,7 +125,7 @@ pub fn index(state: SiteState) -> Markup {
 }
 
 pub fn error_page(code: StatusCode, message: &str, state: SiteState) -> (StatusCode, Markup) {
-    (code, MergedPage::new_content_and_meta("404".to_string(),"Page not found :(".to_string(), html! {
+    (code, MergedPage::new_content_and_meta("404","Page not found :(", html! {
         div {
             h1 { "Error " (code.as_u16()) }
             @if message.len() > 0 {
@@ -133,7 +139,7 @@ pub fn error_page(code: StatusCode, message: &str, state: SiteState) -> (StatusC
 }
 
 pub fn error_page_file(code: StatusCode, message: &str, state: SiteState) -> (StatusCode, Markup) {
-    (code, MergedPage::new_content_and_meta("404".to_string(),"File not found :(".to_string(), html! {
+    (code, MergedPage::new_content_and_meta("404","File not found :(", html! {
         div {
             h1 { "Error " (code.as_u16()) }
             @if message.len() > 0 {

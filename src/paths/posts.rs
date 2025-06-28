@@ -40,7 +40,7 @@ pub struct Post {
 }*/
 
 pub async fn post_full_list(State(state): State<SiteState>) -> Markup {
-    MergedPage::new_content_and_meta("Posts".to_string(), "All the things I've written".to_string(), html! {
+    MergedPage::new_content_and_meta("Posts", "All the things I've written", html! {
         (maud::PreEscaped(state.get_cached_html_element("post_list_html")))
     }, state).render()
 }
@@ -48,9 +48,13 @@ pub async fn post_full_list(State(state): State<SiteState>) -> Markup {
 pub async fn serve_post_page(State(state): State<SiteState>, Path(slug): Path<String>) -> Result<Markup, (StatusCode, Markup)> {
     let post = state.get_post(&slug);
     match post {
-        Ok(post) => Ok(MergedPage::new_content_and_meta(post.title, post.description, html! {
-            (maud::PreEscaped(&post.text))
-    }, state).render()),
+        Ok(post) => {
+            Ok(MergedPage::new_content_and_meta(&post.title, &post.description, html! {
+                h1 { (&post.title) }
+                hr;
+                (maud::PreEscaped(&post.text))
+            }, state).render())
+    },
         Err(_) => return Err(error_page(StatusCode::NOT_FOUND, "Post not found :(", state))
     }
 }
