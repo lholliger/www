@@ -25,6 +25,7 @@ RUN /usr/local/bin/holligerme --build
 
 FROM debian:bookworm-slim AS runtime
 WORKDIR /app
+COPY ./assets assets
 COPY --from=builder /app/target/release/holligerme /usr/local/bin
 COPY --from=build2 /app/database database
 ENTRYPOINT ["/usr/local/bin/holligerme"]
