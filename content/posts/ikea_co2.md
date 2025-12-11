@@ -1,6 +1,6 @@
 ---
-title: The New IKEA Air Quality Sensor
-description: A surprisingly high quality sensor for a very low price
+title: IKEA ALPSTUGA Teardown
+description: Dissassembling IKEA's surprisingly high quality and low price smart sensor
 date: 2025-12-10
 tags:
     - hardware
@@ -47,6 +47,6 @@ I am extremely impressed with this tiny device. I haven't dug too deep into the 
 
 One thing to note about this device, however, is it works Matter over Thread. Unlike most Matter devices that work over Wi-Fi, this needs a Thread-compatible device! For me, that is one of my HomePods or Apple TV, but this may be an issue if you're looking to do this in a non-Threaded Home Assistant setup. This device added just fine to my HomeKit, which then easily gave me a pairing code for Home Assistant.
 
-Excited to see what else IKEA comes up with next for smart home!
+I'm excited to see what else IKEA comes up with next for the smart home!
 
 ![](/assets/images/ikea_co2/E84C7DD9-2C3A-432C-B04D-3D2F39E685F8_1_102_o.jpeg)

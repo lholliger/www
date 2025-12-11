@@ -70,7 +70,7 @@ async fn main() -> anyhow::Result<()> {
                 .not_found_service(ServeDir::new("assets").fallback(not_found_file_service.clone()))
         )
         .nest_service(
-            "/pub", 
+            "/pub",
             ServeDir::new("pub")
                 .not_found_service(ServeDir::new("pub").fallback(not_found_file_service.clone()))
         )
