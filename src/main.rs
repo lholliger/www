@@ -1,15 +1,25 @@
 use std::time::Duration;
 
+use crate::{paths::root::serve_generated_image, util::state::SiteState};
 use axum::{
-     body::Body, extract::{Request, State}, handler::HandlerWithoutStateExt, http::{Response, StatusCode}, routing::get, Router
+    body::Body,
+    extract::{Request, State},
+    handler::HandlerWithoutStateExt,
+    http::{Response, StatusCode},
+    routing::get,
+    Router,
 };
+use clap::Parser;
 use maud::Markup;
-use paths::{about::index, posts::{post_full_list, serve_post_page}, root::{error_page, error_page_file}};
+use paths::{
+    about::index,
+    matrix::{matrix_router, MatrixConfig},
+    posts::{post_full_list, serve_post_page},
+    root::{error_page, error_page_file},
+};
 use tower_http::{services::ServeDir, trace::TraceLayer};
 use tracing::{info, Level, Span};
-use crate::{paths::{root::serve_generated_image}, util::state::SiteState};
 use tracing_subscriber::EnvFilter;
-use clap::Parser;
 
 mod paths;
 mod util;
@@ -18,7 +28,7 @@ mod util;
 #[command(version, about, long_about = None)]
 struct Cli {
     #[arg(short, long, default_value_t = false)]
-    build: bool
+    build: bool,
 }
 
 #[tokio::main]
@@ -26,7 +36,7 @@ async fn main() -> anyhow::Result<()> {
     let subscriber_level = match std::env::var("LOGLEVEL")
         .unwrap_or_else(|_| "INFO".to_string())
         .to_ascii_uppercase()
-        .as_str() 
+        .as_str()
     {
         "TRACE" => Level::TRACE,
         "DEBUG" => Level::DEBUG,
@@ -41,21 +51,19 @@ async fn main() -> anyhow::Result<()> {
         .with_env_filter(EnvFilter::new("holligerme"))
         .init();
 
-
     let args = Cli::parse();
-
-
 
     let state = SiteState::new("database", args.build)?;
 
     if args.build {
         info!("Build complete. Exiting");
-        return Ok(())
+        return Ok(());
     }
 
     let not_found = error_page(StatusCode::NOT_FOUND, "", state.clone());
-    let not_found_file_service = error_page_file(StatusCode::NOT_FOUND, "", state.clone()).into_service();
-    
+    let not_found_file_service =
+        error_page_file(StatusCode::NOT_FOUND, "", state.clone()).into_service();
+
     let app = Router::new()
         .route("/", get(root))
         .route("/about", get(index))
@@ -66,32 +74,43 @@ async fn main() -> anyhow::Result<()> {
         .route("/generated/:image", get(serve_generated_image))
         .nest_service(
             "/assets/css",
-            ServeDir::new("assets/css")
-                .not_found_service(ServeDir::new("assets").fallback(not_found_file_service.clone()))
+            ServeDir::new("assets/css").not_found_service(
+                ServeDir::new("assets").fallback(not_found_file_service.clone()),
+            ),
         )
         .nest_service(
             "/pub",
             ServeDir::new("pub")
-                .not_found_service(ServeDir::new("pub").fallback(not_found_file_service.clone()))
+                .not_found_service(ServeDir::new("pub").fallback(not_found_file_service.clone())),
         )
         .fallback(not_found)
-        .layer(TraceLayer::new_for_http()
-            .make_span_with(|request: &Request<Body>| {
-                tracing::info_span!(
-                    "request",
-                    method = %request.method(),
-                    uri = %request.uri(),
-                    version = ?request.version(),
-                )
-            })
-            .on_response(|response: &Response<Body>, latency: Duration, _span: &Span| {
-                tracing::info!(
-                    status = response.status().as_u16(),
-                    latency = ?latency,
-                    "response"
-                );
-            }))
-            .with_state(state);
+        .layer(
+            TraceLayer::new_for_http()
+                .make_span_with(|request: &Request<Body>| {
+                    tracing::info_span!(
+                        "request",
+                        method = %request.method(),
+                        uri = %request.uri(),
+                        version = ?request.version(),
+                    )
+                })
+                .on_response(
+                    |response: &Response<Body>, latency: Duration, _span: &Span| {
+                        tracing::info!(
+                            status = response.status().as_u16(),
+                            latency = ?latency,
+                            "response"
+                        );
+                    },
+                ),
+        )
+        .with_state(state);
+
+    let app = if let Some(homeserver_url) = std::env::var("MATRIX_HOMESERVER_URL").ok() {
+        app.merge(matrix_router(MatrixConfig { homeserver_url }))
+    } else {
+        app
+    };
 
     info!("Loaded! Listening...");
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();

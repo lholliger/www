@@ -581,6 +581,7 @@ dependencies = [
  "maud",
  "phf",
  "serde",
+ "serde_json",
  "sled",
  "tokio",
  "tokio-util",
